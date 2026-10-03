@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from faultweaver.identities.models import Identity
-from faultweaver.redaction import REDACTED, SecretRedactingFilter, redact_body
+from faultweaver.redaction import REDACTED, SecretRedactingFilter, redact_body, redact_url
 from tests.test_engagements_and_scope import create_engagement
 from tests.test_http_import import authorize
 
@@ -141,6 +141,20 @@ def test_free_text_redacts_inline_authorization_and_named_secrets() -> None:
     redacted = redact_body(text)
 
     assert redacted == "HTTP 403 observed. Authorization: [REDACTED]; token: [REDACTED]"
+
+
+def test_urls_redact_query_fragment_and_userinfo_credentials() -> None:
+    redacted = redact_url(
+        "https://synthetic-user:synthetic-password@api.example.test:8443/api/items"
+        "?page=2&access_token=synthetic-query-secret#token=synthetic-fragment-secret"
+    )
+
+    assert "synthetic-user" not in redacted
+    assert "synthetic-password" not in redacted
+    assert "synthetic-query-secret" not in redacted
+    assert "synthetic-fragment-secret" not in redacted
+    assert "api.example.test:8443/api/items?page=2" in redacted
+    assert redacted.count("%5BREDACTED%5D") == 3
 
 
 def test_validation_errors_do_not_echo_identity_secrets(app_client: TestClient) -> None:

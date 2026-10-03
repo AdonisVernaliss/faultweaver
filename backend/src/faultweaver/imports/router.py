@@ -27,6 +27,7 @@ from faultweaver.imports.service import (
     persist_openapi_import,
     public_batch,
 )
+from faultweaver.redaction import redact_url
 from faultweaver.scope.models import ScopeRule
 from faultweaver.scope.rules import ScopeRuleValue, is_url_in_scope
 
@@ -184,7 +185,7 @@ def _preview(
             ImportRequestPreview(
                 source_entry_index=record.source_entry_index,
                 method=record.method.upper(),
-                url=record.url,
+                url=redact_url(record.url),
                 header_count=len(record.request_headers),
                 cookie_count=sum(
                     1 for item in record.request_headers if item["name"].lower() == "cookie"

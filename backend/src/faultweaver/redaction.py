@@ -5,6 +5,7 @@ import logging
 import re
 from collections.abc import Mapping
 from typing import Any
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 REDACTED = "[REDACTED]"
 _SENSITIVE_HEADERS = {
@@ -59,6 +60,34 @@ def redact_body(body: str | None) -> str | None:
         safe = _INLINE_HEADER_SECRET.sub(r"\1[REDACTED]", safe)
         return _INLINE_NAMED_SECRET.sub(r"\1[REDACTED]", safe)
     return json.dumps(_redact_value(value), separators=(",", ":"), ensure_ascii=False)
+
+
+def redact_query(query: str) -> str:
+    return urlencode(
+        [
+            (name, REDACTED if is_sensitive_key(name) else value)
+            for name, value in parse_qsl(query, keep_blank_values=True)
+        ],
+        doseq=True,
+    )
+
+
+def redact_url(url: str) -> str:
+    try:
+        parsed = urlsplit(url)
+        netloc = parsed.netloc
+        if parsed.username is not None:
+            hostname = parsed.hostname or ""
+            if ":" in hostname:
+                hostname = f"[{hostname}]"
+            port = f":{parsed.port}" if parsed.port is not None else ""
+            netloc = f"{quote(REDACTED, safe='')}@{hostname}{port}"
+    except ValueError:
+        return REDACTED
+    fragment = redact_query(parsed.fragment) if "=" in parsed.fragment else parsed.fragment
+    return urlunsplit(
+        parsed._replace(netloc=netloc, query=redact_query(parsed.query), fragment=fragment)
+    )
 
 
 def redact_mapping(value: Mapping[str, Any]) -> dict[str, Any]:

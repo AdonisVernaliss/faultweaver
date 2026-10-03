@@ -28,7 +28,10 @@ def sample_har(*, include_invalid: bool = False) -> str:
             "time": 18.5,
             "request": {
                 "method": "GET",
-                "url": "https://api.example.test/api/users/17?full=true",
+                "url": (
+                    "https://api.example.test/api/users/17"
+                    "?full=true&token=synthetic-query-secret"
+                ),
                 "headers": [
                     {"name": "Authorization", "value": "Bearer synthetic-har-secret"},
                     {"name": "X-Trace", "value": "one"},
@@ -131,6 +134,7 @@ def test_har_import_redaction_partial_failure_and_deduplication(
     assert preview.json()["accepted_count"] == 1
     assert preview.json()["skipped_count"] == 2
     assert "synthetic-har-secret" not in preview.text
+    assert "synthetic-query-secret" not in preview.text
     assert imported.status_code == 201
     batch = imported.json()["batch"]
     assert batch["display_id"] == "IMP-001"
@@ -148,6 +152,7 @@ def test_har_import_redaction_partial_failure_and_deduplication(
     assert "synthetic-har-secret" not in detail.text
     assert "synthetic-response-secret" not in detail.text
     assert "synthetic-body-secret" not in detail.text
+    assert "synthetic-query-secret" not in detail.text
     assert "[REDACTED]" in detail.text
 
     duplicate = app_client.post(

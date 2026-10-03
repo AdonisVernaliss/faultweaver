@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
-from faultweaver.redaction import redact_body, redact_headers
+from faultweaver.redaction import redact_body, redact_headers, redact_query, redact_url
 
 
 class HeaderEntry(BaseModel):
@@ -79,10 +79,10 @@ def public_exchange(exchange: object) -> ExchangeResponse:
         operator_modified=exchange.operator_modified,  # type: ignore[attr-defined]
         source=exchange.source,  # type: ignore[attr-defined]
         method=exchange.method,  # type: ignore[attr-defined]
-        url=exchange.url,  # type: ignore[attr-defined]
+        url=redact_url(exchange.url),  # type: ignore[attr-defined]
         host=exchange.host,  # type: ignore[attr-defined]
         path=exchange.path,  # type: ignore[attr-defined]
-        query=exchange.query,  # type: ignore[attr-defined]
+        query=redact_query(exchange.query),  # type: ignore[attr-defined]
         request_headers=redact_headers(exchange.request_headers),  # type: ignore[attr-defined]
         request_body=redact_body(exchange.request_body),  # type: ignore[attr-defined]
         response_status=exchange.response_status,  # type: ignore[attr-defined]
@@ -90,6 +90,6 @@ def public_exchange(exchange: object) -> ExchangeResponse:
         response_body=redact_body(exchange.response_body),  # type: ignore[attr-defined]
         response_elapsed_ms=exchange.response_elapsed_ms,  # type: ignore[attr-defined]
         response_truncated=exchange.response_truncated,  # type: ignore[attr-defined]
-        redirect_chain=exchange.redirect_chain,  # type: ignore[attr-defined]
+        redirect_chain=[redact_url(item) for item in exchange.redirect_chain],  # type: ignore[attr-defined]
         created_at=exchange.created_at,  # type: ignore[attr-defined]
     )
