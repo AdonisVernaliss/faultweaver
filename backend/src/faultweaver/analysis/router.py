@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 import httpx
@@ -16,24 +17,49 @@ from faultweaver.analysis.schemas import (
     AuthorizationMatrixResponse,
     AuthorizationMatrixRow,
     CandidateResponse,
+    CandidateReview,
     CandidateUpdate,
     ComparisonCreate,
     ComparisonResponse,
 )
 from faultweaver.database import get_session
 from faultweaver.engagements.router import get_engagement_or_404
+from faultweaver.findings.models import Finding, OperatorNote
+from faultweaver.findings.router import public_finding
+from faultweaver.findings.schemas import FindingPromotion, FindingResponse
+from faultweaver.findings.service import add_history, allocate_display_id
 from faultweaver.http_traffic.models import HttpExchange
 from faultweaver.http_traffic.replay import RedirectLimitError, ScopeViolationError
 from faultweaver.http_traffic.router import _scope_values
 from faultweaver.http_traffic.schemas import ReplayCreate, public_exchange
 from faultweaver.http_traffic.service import build_replay_exchange
 from faultweaver.identities.models import Identity
+from faultweaver.redaction import redact_body
 
 router = APIRouter(tags=["analysis"])
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
-def public_candidate(candidate: Candidate) -> CandidateResponse:
+def public_candidate(session: Session, candidate: Candidate) -> CandidateResponse:
+    comparison = session.get(ResponseComparison, candidate.comparison_id)
+    original = session.get(HttpExchange, candidate.original_exchange_id)
+    finding = session.scalar(select(Finding).where(Finding.candidate_id == candidate.id))
+    identities: list[dict[str, str]] = []
+    comparison_result: dict[str, object] = {}
+    if comparison is not None:
+        comparison_result = comparison.result
+        identity_rows = session.scalars(
+            select(Identity).where(
+                Identity.id.in_([comparison.identity_a_id, comparison.identity_b_id])
+            )
+        )
+        identities = [{"id": item.id, "name": item.name} for item in identity_rows]
+    replays = list(candidate.supporting_replays)
+    operator_notes = session.scalars(
+        select(OperatorNote)
+        .where(OperatorNote.candidate_id == candidate.id)
+        .order_by(OperatorNote.created_at)
+    )
     return CandidateResponse(
         id=candidate.id,
         engagement_id=candidate.engagement_id,
@@ -44,8 +70,38 @@ def public_candidate(candidate: Candidate) -> CandidateResponse:
         category=candidate.category,
         confidence=candidate.confidence,
         status=candidate.status,
+        review_decision=candidate.review_decision,
+        reviewed_at=candidate.reviewed_at,
+        archived_at=candidate.archived_at,
+        finding_id=finding.id if finding else None,
         reasoning=candidate.reasoning,
         notes=candidate.notes,
+        target={
+            "method": original.method if original else "",
+            "host": original.host if original else "",
+            "path": original.path if original else "",
+        },
+        original=public_exchange(original) if original else None,
+        supporting_replays=[public_exchange(item) for item in replays],
+        comparison_result=comparison_result,
+        identities=identities,
+        response_statuses=[
+            {
+                "exchange_id": item.id,
+                "identity_id": item.identity_id,
+                "status": item.response_status,
+            }
+            for item in replays
+        ],
+        operator_notes=[
+            {
+                "id": item.id,
+                "author_label": item.author_label,
+                "body": item.body,
+                "created_at": item.created_at,
+            }
+            for item in operator_notes
+        ],
         created_at=candidate.created_at,
         updated_at=candidate.updated_at,
     )
@@ -66,7 +122,7 @@ def public_comparison(session: Session, comparison: ResponseComparison) -> Compa
         identity_a_id=comparison.identity_a_id,
         identity_b_id=comparison.identity_b_id,
         result=comparison.result,
-        candidate=public_candidate(candidate) if candidate is not None else None,
+        candidate=public_candidate(session, candidate) if candidate is not None else None,
         created_at=comparison.created_at,
     )
 
@@ -91,6 +147,7 @@ def compare_identities(
             select(Identity.id).where(
                 Identity.engagement_id == original.engagement_id,
                 Identity.id.in_(identity_ids),
+                Identity.archived_at.is_(None),
             )
         )
     )
@@ -156,7 +213,7 @@ def list_candidates(engagement_id: str, session: SessionDep) -> list[CandidateRe
         .where(Candidate.engagement_id == engagement_id)
         .order_by(Candidate.created_at.desc())
     )
-    return [public_candidate(candidate) for candidate in candidates]
+    return [public_candidate(session, candidate) for candidate in candidates]
 
 
 @router.get(
@@ -165,7 +222,7 @@ def list_candidates(engagement_id: str, session: SessionDep) -> list[CandidateRe
 )
 def get_candidate(engagement_id: str, candidate_id: str, session: SessionDep) -> CandidateResponse:
     candidate = _candidate_or_404(session, engagement_id, candidate_id)
-    return public_candidate(candidate)
+    return public_candidate(session, candidate)
 
 
 @router.patch(
@@ -183,7 +240,114 @@ def update_candidate(
         setattr(candidate, field, value)
     session.commit()
     session.refresh(candidate)
-    return public_candidate(candidate)
+    return public_candidate(session, candidate)
+
+
+@router.post(
+    "/api/engagements/{engagement_id}/candidates/{candidate_id}/review",
+    response_model=CandidateResponse,
+)
+def review_candidate(
+    engagement_id: str,
+    candidate_id: str,
+    payload: CandidateReview,
+    session: SessionDep,
+) -> CandidateResponse:
+    candidate = _candidate_or_404(session, engagement_id, candidate_id)
+    if session.scalar(select(Finding).where(Finding.candidate_id == candidate.id)):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Promoted candidates cannot be reclassified",
+        )
+    candidate.review_decision = payload.decision
+    candidate.reviewed_at = datetime.now(UTC)
+    candidate.status = "reviewed"
+    if payload.note.strip():
+        session.add(
+            OperatorNote(
+                engagement_id=engagement_id,
+                candidate_id=candidate.id,
+                author_label="Operator",
+                body=redact_body(payload.note) or "",
+            )
+        )
+    session.commit()
+    session.refresh(candidate)
+    return public_candidate(session, candidate)
+
+
+@router.post(
+    "/api/engagements/{engagement_id}/candidates/{candidate_id}/promote",
+    response_model=FindingResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def promote_candidate(
+    engagement_id: str,
+    candidate_id: str,
+    payload: FindingPromotion,
+    session: SessionDep,
+) -> FindingResponse:
+    candidate = _candidate_or_404(session, engagement_id, candidate_id)
+    existing = session.scalar(select(Finding).where(Finding.candidate_id == candidate.id))
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Candidate already promoted to {existing.display_id}",
+        )
+    original = session.get(HttpExchange, candidate.original_exchange_id)
+    display_id, number = allocate_display_id(session, engagement_id, "finding")
+    finding = Finding(
+        engagement_id=engagement_id,
+        candidate_id=candidate.id,
+        display_id=display_id,
+        sequence_number=number,
+        title=redact_body(payload.title or candidate.title) or candidate.title,
+        category=payload.category or candidate.category,
+        severity=payload.severity,
+        status="Open",
+        affected_asset=redact_body(payload.affected_asset or (original.host if original else ""))
+        or "",
+        affected_endpoints=[redact_body(item) or "" for item in payload.affected_endpoints]
+        or ([original.path] if original else []),
+        description=redact_body(payload.description) or "",
+        impact=redact_body(payload.impact) or "",
+        reproduction_steps=[redact_body(item) or "" for item in payload.reproduction_steps],
+        remediation=redact_body(payload.remediation) or "",
+        references=[redact_body(item) or "" for item in payload.references],
+        supporting_original_exchange_id=candidate.original_exchange_id,
+        supporting_comparison_id=candidate.comparison_id,
+    )
+    session.add(finding)
+    session.flush()
+    candidate.review_decision = "Confirmed"
+    candidate.reviewed_at = datetime.now(UTC)
+    candidate.status = "promoted"
+    add_history(
+        session,
+        finding.id,
+        "candidate_promoted",
+        f"Candidate promoted to {display_id}",
+        {"candidate_id": candidate.id, "finding_id": display_id},
+    )
+    session.commit()
+    session.refresh(finding)
+    return public_finding(session, finding)
+
+
+@router.delete(
+    "/api/engagements/{engagement_id}/candidates/{candidate_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def archive_candidate(engagement_id: str, candidate_id: str, session: SessionDep) -> None:
+    candidate = _candidate_or_404(session, engagement_id, candidate_id)
+    finding = session.scalar(select(Finding).where(Finding.candidate_id == candidate.id))
+    if finding is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Candidate is retained by {finding.display_id}",
+        )
+    candidate.archived_at = datetime.now(UTC)
+    session.commit()
 
 
 @router.get(
@@ -195,7 +359,7 @@ def authorization_matrix(engagement_id: str, session: SessionDep) -> Authorizati
     identities = list(
         session.scalars(
             select(Identity)
-            .where(Identity.engagement_id == engagement_id)
+            .where(Identity.engagement_id == engagement_id, Identity.archived_at.is_(None))
             .order_by(Identity.is_anonymous.desc(), Identity.name)
         )
     )
@@ -289,6 +453,7 @@ def _candidate_or_404(session: Session, engagement_id: str, candidate_id: str) -
         select(Candidate).where(
             Candidate.id == candidate_id,
             Candidate.engagement_id == engagement_id,
+            Candidate.archived_at.is_(None),
         )
     )
     if candidate is None:

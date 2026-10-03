@@ -27,8 +27,19 @@ class CandidateResponse(BaseModel):
     category: str
     confidence: str
     status: str
+    review_decision: str | None
+    reviewed_at: datetime | None
+    archived_at: datetime | None
+    finding_id: str | None
     reasoning: list[str]
     notes: str
+    target: dict[str, str]
+    original: ExchangeResponse | None
+    supporting_replays: list[ExchangeResponse]
+    comparison_result: dict[str, object]
+    identities: list[dict[str, str]]
+    response_statuses: list[dict[str, object]]
+    operator_notes: list[dict[str, object]]
     created_at: datetime
     updated_at: datetime
 
@@ -36,6 +47,11 @@ class CandidateResponse(BaseModel):
 class CandidateUpdate(BaseModel):
     status: Literal["candidate", "confirmed", "rejected"] | None = None
     notes: str | None = Field(default=None, max_length=20_000)
+
+
+class CandidateReview(BaseModel):
+    decision: Literal["False Positive", "Informational", "Accepted"]
+    note: str = Field(default="", max_length=20_000)
 
 
 class ComparisonResponse(BaseModel):

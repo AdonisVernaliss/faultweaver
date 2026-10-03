@@ -14,6 +14,7 @@ from faultweaver.analysis.router import router as analysis_router
 from faultweaver.config import Settings
 from faultweaver.database import create_session_factory, get_session, session_dependency
 from faultweaver.engagements.router import router as engagements_router
+from faultweaver.findings.router import router as findings_router
 from faultweaver.http_traffic.router import router as http_traffic_router
 from faultweaver.identities.router import router as identities_router
 from faultweaver.migrations.runner import upgrade_database
@@ -70,6 +71,7 @@ def create_app(
     app.include_router(http_traffic_router)
     app.include_router(identities_router)
     app.include_router(analysis_router)
+    app.include_router(findings_router)
 
     return app
 

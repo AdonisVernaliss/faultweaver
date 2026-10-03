@@ -36,12 +36,16 @@ def build_replay_exchange(
             select(Identity).where(
                 Identity.id == payload.identity_id,
                 Identity.engagement_id == original.engagement_id,
+                Identity.archived_at.is_(None),
             )
         )
         if identity is None:
             raise LookupError("Identity not found")
         engagement_identities = session.scalars(
-            select(Identity).where(Identity.engagement_id == original.engagement_id)
+            select(Identity).where(
+                Identity.engagement_id == original.engagement_id,
+                Identity.archived_at.is_(None),
+            )
         )
         managed_header_names = {
             name.lower()

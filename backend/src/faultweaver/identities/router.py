@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -43,6 +44,7 @@ def get_identity_or_404(session: Session, engagement_id: str, identity_id: str) 
         select(Identity).where(
             Identity.id == identity_id,
             Identity.engagement_id == engagement_id,
+            Identity.archived_at.is_(None),
         )
     )
     if identity is None:
@@ -87,7 +89,7 @@ def list_identities(engagement_id: str, session: SessionDep) -> list[IdentityRes
     get_engagement_or_404(session, engagement_id)
     identities = session.scalars(
         select(Identity)
-        .where(Identity.engagement_id == engagement_id)
+        .where(Identity.engagement_id == engagement_id, Identity.archived_at.is_(None))
         .order_by(Identity.is_anonymous.desc(), Identity.name)
     )
     return [public_identity(identity) for identity in identities]
@@ -146,5 +148,5 @@ def delete_identity(engagement_id: str, identity_id: str, session: SessionDep) -
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Anonymous identity cannot be deleted"
         )
-    session.delete(identity)
+    identity.archived_at = datetime.now(UTC)
     session.commit()
