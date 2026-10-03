@@ -1,0 +1,9 @@
+.git
+.github
+.venv
+backend/.venv
+frontend/node_modules
+frontend/.svelte-kit
+frontend/build
+data
+*.db

@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.coverage
+.pytest_cache/
+.ruff_cache/
+.venv/
+htmlcov/
+
+# Node and SvelteKit
+node_modules/
+.svelte-kit/
+build/
+frontend/.vite/
+
+# Local state and environment
+.env
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
