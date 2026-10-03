@@ -25,6 +25,7 @@ from faultweaver.findings.schemas import (
     LatestRetestResponse,
     NoteCreate,
     NoteResponse,
+    RelatedAttackChainResponse,
     RetestCreate,
     RetestResponse,
     RetestUpdate,
@@ -92,6 +93,8 @@ def public_retest(session: Session, item: Retest) -> RetestResponse:
 
 
 def public_finding(session: Session, finding: Finding, *, detail: bool = True) -> FindingResponse:
+    from faultweaver.attack_chains.models import AttackChain, AttackChainStep
+
     retests = list(
         session.scalars(
             select(Retest)
@@ -113,6 +116,14 @@ def public_finding(session: Session, finding: Finding, *, detail: bool = True) -
             .where(FindingLifecycleEvent.finding_id == finding.id)
             .order_by(FindingLifecycleEvent.created_at)
         )
+    )
+    attack_chains = list(
+        session.scalars(
+            select(AttackChain)
+            .join(AttackChainStep, AttackChainStep.attack_chain_id == AttackChain.id)
+            .where(AttackChainStep.finding_id == finding.id)
+            .order_by(AttackChain.sequence_number)
+        ).unique()
     )
     return FindingResponse(
         id=finding.id,
@@ -158,6 +169,15 @@ def public_finding(session: Session, finding: Finding, *, detail: bool = True) -
         ]
         if detail
         else [],
+        attack_chains=[
+            RelatedAttackChainResponse(
+                id=chain.id,
+                display_id=chain.display_id,
+                title=chain.title,
+                status=chain.status,
+            )
+            for chain in attack_chains
+        ],
     )
 
 

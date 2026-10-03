@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from faultweaver import __version__
 from faultweaver.analysis.router import router as analysis_router
+from faultweaver.attack_chains.router import router as attack_chains_router
 from faultweaver.config import Settings
 from faultweaver.database import create_session_factory, get_session, session_dependency
 from faultweaver.engagements.router import router as engagements_router
@@ -72,6 +73,7 @@ def create_app(
     app.include_router(identities_router)
     app.include_router(analysis_router)
     app.include_router(findings_router)
+    app.include_router(attack_chains_router)
 
     return app
 

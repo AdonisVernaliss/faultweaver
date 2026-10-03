@@ -143,6 +143,13 @@ class LatestRetestResponse(BaseModel):
     tested_at: datetime
 
 
+class RelatedAttackChainResponse(BaseModel):
+    id: str
+    display_id: str
+    title: str
+    status: str
+
+
 class FindingResponse(BaseModel):
     id: str
     engagement_id: str
@@ -170,3 +177,4 @@ class FindingResponse(BaseModel):
     notes: list[NoteResponse] = []
     retests: list[RetestResponse] = []
     history: list[HistoryResponse] = []
+    attack_chains: list[RelatedAttackChainResponse] = []
