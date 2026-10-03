@@ -8,9 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from faultweaver import __version__
 from faultweaver.config import Settings
-from faultweaver.database import Base, create_session_factory, get_session, session_dependency
+from faultweaver.database import create_session_factory, get_session, session_dependency
 from faultweaver.engagements.router import router as engagements_router
 from faultweaver.http_traffic.router import router as http_traffic_router
+from faultweaver.migrations.runner import upgrade_database
 from faultweaver.scope.router import router as scope_router
 
 
@@ -24,7 +25,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        Base.metadata.create_all(session_factory.kw["bind"])
+        upgrade_database(resolved_settings.database_url)
         yield
 
     app = FastAPI(

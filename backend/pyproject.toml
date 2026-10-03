@@ -5,6 +5,7 @@ description = "Local-first Web/API penetration-testing workspace"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+  "alembic>=1.15,<2",
   "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
   "pydantic>=2.10,<3",
