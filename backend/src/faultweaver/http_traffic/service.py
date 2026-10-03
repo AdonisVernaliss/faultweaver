@@ -23,9 +23,11 @@ def build_replay_exchange(
 ) -> HttpExchange:
     method = payload.method or original.method
     url = str(payload.url) if payload.url is not None else original.url
-    headers = payload.headers if payload.headers is not None else [
-        HeaderEntry.model_validate(item) for item in original.request_headers
-    ]
+    headers = (
+        payload.headers
+        if payload.headers is not None
+        else [HeaderEntry.model_validate(item) for item in original.request_headers]
+    )
     body = payload.body if "body" in payload.model_fields_set else original.request_body
     identity: Identity | None = None
     auth_source = "original"
@@ -49,9 +51,7 @@ def build_replay_exchange(
                 *([item.api_key_header] if item.api_key_header else []),
             )
         }
-        headers = apply_identity(
-            headers, identity, managed_header_names=managed_header_names
-        )
+        headers = apply_identity(headers, identity, managed_header_names=managed_header_names)
         auth_source = "identity"
 
     with httpx.Client(

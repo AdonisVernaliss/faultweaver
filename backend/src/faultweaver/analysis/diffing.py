@@ -6,9 +6,7 @@ from typing import Any
 from faultweaver.analysis.normalization import NormalizedResponse
 
 
-def compare_responses(
-    first: NormalizedResponse, second: NormalizedResponse
-) -> dict[str, object]:
+def compare_responses(first: NormalizedResponse, second: NormalizedResponse) -> dict[str, object]:
     first_paths = set(first.json_fields)
     second_paths = set(second.json_fields)
     first_structure = set(first.json_structure)
@@ -50,9 +48,7 @@ def compare_responses(
             "added_fields": sorted(second_paths - first_paths),
             "removed_fields": sorted(first_paths - second_paths),
             "changed_fields": changed_fields,
-            "structural_similarity": round(
-                _jaccard(first_structure, second_structure), 4
-            ),
+            "structural_similarity": round(_jaccard(first_structure, second_structure), 4),
         },
         "redirects": {
             "a": first.redirect_chain,

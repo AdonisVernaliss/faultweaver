@@ -4,9 +4,7 @@ from urllib.parse import parse_qsl
 from faultweaver.analysis.models import Candidate, ResponseComparison
 from faultweaver.http_traffic.models import HttpExchange
 
-_OBJECT_SEGMENT = re.compile(
-    r"^(?:\d+|[0-9a-f]{24}|[0-9a-f]{8}-[0-9a-f-]{27,})$", re.IGNORECASE
-)
+_OBJECT_SEGMENT = re.compile(r"^(?:\d+|[0-9a-f]{24}|[0-9a-f]{8}-[0-9a-f-]{27,})$", re.IGNORECASE)
 
 
 def authorization_candidate(

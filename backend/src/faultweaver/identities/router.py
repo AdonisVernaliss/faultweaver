@@ -82,9 +82,7 @@ def create_identity(
     return public_identity(identity)
 
 
-@router.get(
-    "/api/engagements/{engagement_id}/identities", response_model=list[IdentityResponse]
-)
+@router.get("/api/engagements/{engagement_id}/identities", response_model=list[IdentityResponse])
 def list_identities(engagement_id: str, session: SessionDep) -> list[IdentityResponse]:
     get_engagement_or_404(session, engagement_id)
     identities = session.scalars(
@@ -99,9 +97,7 @@ def list_identities(engagement_id: str, session: SessionDep) -> list[IdentityRes
     "/api/engagements/{engagement_id}/identities/{identity_id}",
     response_model=IdentityResponse,
 )
-def get_identity(
-    engagement_id: str, identity_id: str, session: SessionDep
-) -> IdentityResponse:
+def get_identity(engagement_id: str, identity_id: str, session: SessionDep) -> IdentityResponse:
     identity = get_identity_or_404(session, engagement_id, identity_id)
     return public_identity(identity)
 

@@ -122,9 +122,7 @@ def list_requests(
             .offset(offset)
         )
     )
-    return ExchangeList(
-        items=[public_exchange(item) for item in items], total=total
-    )
+    return ExchangeList(items=[public_exchange(item) for item in items], total=total)
 
 
 @router.get("/api/requests/{request_id}", response_model=ExchangeDetail)

@@ -177,16 +177,22 @@ def test_identity_replay_replaces_auth_and_preserves_the_original(
                 select(HttpExchange).where(HttpExchange.parent_exchange_id == imported["id"])
             )
             assert original is not None and stored_replay is not None
-            assert next(
-                item["value"]
-                for item in original.request_headers
-                if item["name"].lower() == "authorization"
-            ) == "Bearer original-secret"
-            assert next(
-                item["value"]
-                for item in stored_replay.request_headers
-                if item["name"].lower() == "authorization"
-            ) == "Bearer selected-bearer-secret"
+            assert (
+                next(
+                    item["value"]
+                    for item in original.request_headers
+                    if item["name"].lower() == "authorization"
+                )
+                == "Bearer original-secret"
+            )
+            assert (
+                next(
+                    item["value"]
+                    for item in stored_replay.request_headers
+                    if item["name"].lower() == "authorization"
+                )
+                == "Bearer selected-bearer-secret"
+            )
 
 
 def test_anonymous_identity_removes_known_auth_headers(
@@ -211,9 +217,7 @@ def test_anonymous_identity_removes_known_auth_headers(
         )
         anonymous = next(
             item
-            for item in client.get(
-                f"/api/engagements/{engagement_id}/identities"
-            ).json()
+            for item in client.get(f"/api/engagements/{engagement_id}/identities").json()
             if item["is_anonymous"]
         )
 

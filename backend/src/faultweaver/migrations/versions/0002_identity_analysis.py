@@ -82,9 +82,7 @@ def upgrade() -> None:
             )
         )
         batch_op.add_column(
-            sa.Column(
-                "operator_modified", sa.Boolean(), nullable=False, server_default=sa.false()
-            )
+            sa.Column("operator_modified", sa.Boolean(), nullable=False, server_default=sa.false())
         )
         batch_op.create_foreign_key(
             "fk_http_exchanges_identity_id",
@@ -107,21 +105,13 @@ def upgrade() -> None:
         sa.Column("result", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["engagement_id"], ["engagements.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["identity_a_id"], ["identities.id"], ondelete="RESTRICT"
-        ),
-        sa.ForeignKeyConstraint(
-            ["identity_b_id"], ["identities.id"], ondelete="RESTRICT"
-        ),
+        sa.ForeignKeyConstraint(["identity_a_id"], ["identities.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["identity_b_id"], ["identities.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(
             ["original_exchange_id"], ["http_exchanges.id"], ondelete="CASCADE"
         ),
-        sa.ForeignKeyConstraint(
-            ["replay_a_id"], ["http_exchanges.id"], ondelete="CASCADE"
-        ),
-        sa.ForeignKeyConstraint(
-            ["replay_b_id"], ["http_exchanges.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["replay_a_id"], ["http_exchanges.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["replay_b_id"], ["http_exchanges.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     for column in (
@@ -132,9 +122,7 @@ def upgrade() -> None:
         "replay_a_id",
         "replay_b_id",
     ):
-        op.create_index(
-            f"ix_response_comparisons_{column}", "response_comparisons", [column]
-        )
+        op.create_index(f"ix_response_comparisons_{column}", "response_comparisons", [column])
 
     op.create_table(
         "candidates",
@@ -150,9 +138,7 @@ def upgrade() -> None:
         sa.Column("notes", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["comparison_id"], ["response_comparisons.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["comparison_id"], ["response_comparisons.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["engagement_id"], ["engagements.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["original_exchange_id"], ["http_exchanges.id"], ondelete="CASCADE"
@@ -161,9 +147,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("comparison_id"),
     )
     op.create_index("ix_candidates_engagement_id", "candidates", ["engagement_id"])
-    op.create_index(
-        "ix_candidates_original_exchange_id", "candidates", ["original_exchange_id"]
-    )
+    op.create_index("ix_candidates_original_exchange_id", "candidates", ["original_exchange_id"])
     op.create_table(
         "candidate_replays",
         sa.Column("candidate_id", sa.String(length=36), nullable=False),

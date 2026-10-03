@@ -51,16 +51,12 @@ def public_candidate(candidate: Candidate) -> CandidateResponse:
     )
 
 
-def public_comparison(
-    session: Session, comparison: ResponseComparison
-) -> ComparisonResponse:
+def public_comparison(session: Session, comparison: ResponseComparison) -> ComparisonResponse:
     replay_a = session.get(HttpExchange, comparison.replay_a_id)
     replay_b = session.get(HttpExchange, comparison.replay_b_id)
     if replay_a is None or replay_b is None:
         raise RuntimeError("Comparison replay evidence is missing")
-    candidate = session.scalar(
-        select(Candidate).where(Candidate.comparison_id == comparison.id)
-    )
+    candidate = session.scalar(select(Candidate).where(Candidate.comparison_id == comparison.id))
     return ComparisonResponse(
         id=comparison.id,
         engagement_id=comparison.engagement_id,
@@ -102,12 +98,8 @@ def compare_identities(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
 
     try:
-        replay_a = _replay_for_identity(
-            session, original, payload.identity_a_id, request
-        )
-        replay_b = _replay_for_identity(
-            session, original, payload.identity_b_id, request
-        )
+        replay_a = _replay_for_identity(session, original, payload.identity_a_id, request)
+        replay_b = _replay_for_identity(session, original, payload.identity_b_id, request)
     except ScopeViolationError as error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
     except (httpx.HTTPError, RedirectLimitError, ValidationError) as error:
@@ -171,9 +163,7 @@ def list_candidates(engagement_id: str, session: SessionDep) -> list[CandidateRe
     "/api/engagements/{engagement_id}/candidates/{candidate_id}",
     response_model=CandidateResponse,
 )
-def get_candidate(
-    engagement_id: str, candidate_id: str, session: SessionDep
-) -> CandidateResponse:
+def get_candidate(engagement_id: str, candidate_id: str, session: SessionDep) -> CandidateResponse:
     candidate = _candidate_or_404(session, engagement_id, candidate_id)
     return public_candidate(candidate)
 
@@ -200,9 +190,7 @@ def update_candidate(
     "/api/engagements/{engagement_id}/authorization-matrix",
     response_model=AuthorizationMatrixResponse,
 )
-def authorization_matrix(
-    engagement_id: str, session: SessionDep
-) -> AuthorizationMatrixResponse:
+def authorization_matrix(engagement_id: str, session: SessionDep) -> AuthorizationMatrixResponse:
     get_engagement_or_404(session, engagement_id)
     identities = list(
         session.scalars(
@@ -296,9 +284,7 @@ def _normalize_exchange(exchange: HttpExchange):
     )
 
 
-def _candidate_or_404(
-    session: Session, engagement_id: str, candidate_id: str
-) -> Candidate:
+def _candidate_or_404(session: Session, engagement_id: str, candidate_id: str) -> Candidate:
     candidate = session.scalar(
         select(Candidate).where(
             Candidate.id == candidate_id,

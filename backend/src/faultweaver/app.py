@@ -54,9 +54,7 @@ def create_app(
     )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_error_handler(
-        _: object, error: RequestValidationError
-    ) -> JSONResponse:
+    async def validation_error_handler(_: object, error: RequestValidationError) -> JSONResponse:
         errors = sanitize_for_log(jsonable_encoder(error.errors()))
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

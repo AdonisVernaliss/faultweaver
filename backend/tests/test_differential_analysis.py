@@ -40,12 +40,8 @@ def test_differential_replay_persists_explainable_candidate_and_matrix(
         engagement_id = create_engagement(client)
         authorize(client, engagement_id)
         request_id = import_request(client, engagement_id, "/api/orders/17")
-        identity_a = create_identity(
-            client, engagement_id, "Tenant A", "synthetic-tenant-a"
-        )
-        identity_b = create_identity(
-            client, engagement_id, "Tenant B", "synthetic-tenant-b"
-        )
+        identity_a = create_identity(client, engagement_id, "Tenant A", "synthetic-tenant-a")
+        identity_b = create_identity(client, engagement_id, "Tenant B", "synthetic-tenant-b")
 
         response = client.post(
             f"/api/requests/{request_id}/compare",
@@ -68,27 +64,21 @@ def test_differential_replay_persists_explainable_candidate_and_matrix(
         }
         assert any("manual authorization review" in item for item in candidate["reasoning"])
 
-        matrix = client.get(
-            f"/api/engagements/{engagement_id}/authorization-matrix"
-        ).json()
+        matrix = client.get(f"/api/engagements/{engagement_id}/authorization-matrix").json()
         row = next(item for item in matrix["rows"] if item["path"] == "/api/orders/17")
         assert row["cells"][identity_a] == {
             "state": "observed",
             "status": 200,
             "evidence_request_id": comparison["replay_a"]["id"],
         }
-        anonymous_id = next(
-            item["id"] for item in matrix["identities"] if item["is_anonymous"]
-        )
+        anonymous_id = next(item["id"] for item in matrix["identities"] if item["is_anonymous"])
         assert row["cells"][anonymous_id]["state"] == "not_tested"
         comparison_id = comparison["id"]
         candidate_id = candidate["id"]
 
     with make_client() as restarted:
         persisted = restarted.get(f"/api/comparisons/{comparison_id}")
-        candidates = restarted.get(
-            f"/api/engagements/{engagement_id}/candidates"
-        )
+        candidates = restarted.get(f"/api/engagements/{engagement_id}/candidates")
         updated = restarted.patch(
             f"/api/engagements/{engagement_id}/candidates/{candidate_id}",
             json={"status": "rejected", "notes": "Reviewed as expected tenant sharing."},
@@ -146,9 +136,7 @@ def test_differential_replay_keeps_redirects_inside_authorized_scope(
             f"/api/requests/{request_id}/compare",
             json={"identity_a_id": first, "identity_b_id": second},
         )
-        requests = client.get(
-            f"/api/engagements/{engagement_id}/requests"
-        ).json()
+        requests = client.get(f"/api/engagements/{engagement_id}/requests").json()
 
     assert response.status_code == 403
     assert requests["total"] == 1

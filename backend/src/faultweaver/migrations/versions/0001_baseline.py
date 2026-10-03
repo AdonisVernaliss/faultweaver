@@ -124,9 +124,7 @@ def upgrade() -> None:
         sa.Column("redirect_chain", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["engagement_id"], ["engagements.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(
-            ["parent_exchange_id"], ["http_exchanges.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["parent_exchange_id"], ["http_exchanges.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
     indexed_columns = (

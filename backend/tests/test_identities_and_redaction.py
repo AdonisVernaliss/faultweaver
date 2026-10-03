@@ -13,9 +13,7 @@ def test_identity_crud_is_scoped_and_credentials_are_redacted(app_client: TestCl
     first_engagement = create_engagement(app_client)
     second_engagement = create_engagement(app_client)
 
-    anonymous = app_client.get(
-        f"/api/engagements/{first_engagement}/identities"
-    ).json()
+    anonymous = app_client.get(f"/api/engagements/{first_engagement}/identities").json()
     assert len(anonymous) == 1
     assert anonymous[0]["name"] == "Anonymous"
     assert anonymous[0]["is_anonymous"] is True
@@ -32,9 +30,7 @@ def test_identity_crud_is_scoped_and_credentials_are_redacted(app_client: TestCl
             {"name": "X-Api-Key-Secondary", "value": "synthetic-secondary-secret"},
         ],
     }
-    created = app_client.post(
-        f"/api/engagements/{first_engagement}/identities", json=payload
-    )
+    created = app_client.post(f"/api/engagements/{first_engagement}/identities", json=payload)
 
     assert created.status_code == 201
     identity = created.json()

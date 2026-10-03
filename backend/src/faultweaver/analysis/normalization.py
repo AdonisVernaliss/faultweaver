@@ -11,9 +11,7 @@ _UUID = re.compile(
     r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b",
     re.IGNORECASE,
 )
-_TIMESTAMP = re.compile(
-    r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b"
-)
+_TIMESTAMP = re.compile(r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b")
 _LONG_HEX = re.compile(r"\b[0-9a-f]{20,}\b", re.IGNORECASE)
 _LONG_NUMBER = re.compile(r"\b\d{10,}\b")
 _WHITESPACE = re.compile(r"\s+")
@@ -83,9 +81,7 @@ def normalize_response(
         json_value=json_value,
         json_structure=json_structure,
         json_fields=json_fields,
-        selected_headers={
-            key: header_map[key] for key in SELECTED_HEADERS if key in header_map
-        },
+        selected_headers={key: header_map[key] for key in SELECTED_HEADERS if key in header_map},
         redirect_chain=list(redirect_chain or []),
     )
 

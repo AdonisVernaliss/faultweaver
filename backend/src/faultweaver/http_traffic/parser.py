@@ -93,10 +93,7 @@ def render_raw_request_parts(
 ) -> str:
     target = f"{path}?{query}" if query else path
     lines = [f"{method} {target} HTTP/1.1"]
-    lines.extend(
-        f"{header['name']}: {header['value']}"
-        for header in headers
-    )
+    lines.extend(f"{header['name']}: {header['value']}" for header in headers)
     lines.append("")
     lines.append(body or "")
     return "\r\n".join(lines)

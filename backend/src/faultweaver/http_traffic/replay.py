@@ -57,8 +57,7 @@ def apply_identity(
     retained = [
         header
         for header in headers
-        if not is_sensitive_header(header.name)
-        and header.name.lower() not in managed_header_names
+        if not is_sensitive_header(header.name) and header.name.lower() not in managed_header_names
     ]
     if identity.is_anonymous:
         return retained

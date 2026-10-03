@@ -18,9 +18,7 @@ _SENSITIVE_KEY = re.compile(
     r"(^|[_-])(api[_-]?key|authorization|cookie|pass(word|phrase)?|secret|token)(s)?$",
     re.IGNORECASE,
 )
-_FORM_SECRET = re.compile(
-    r"(?i)(\b(?:api[_-]?key|password|secret|token)=)[^&\s]*"
-)
+_FORM_SECRET = re.compile(r"(?i)(\b(?:api[_-]?key|password|secret|token)=)[^&\s]*")
 
 
 def is_sensitive_header(name: str) -> bool:
