@@ -9,7 +9,16 @@ Faultweaver is not a promise of complete vulnerability coverage. Automated obser
 
 ## Current status
 
-Faultweaver is under active development. The first milestone covers engagement creation, backend-enforced target scope, raw HTTP import, a request explorer, safe replay, and SQLite persistence.
+Faultweaver is pre-release software. The first functional vertical slice is available:
+
+- create and reopen engagements;
+- authorize exact scheme, hostname, port, and path-prefix scope rules;
+- import raw HTTP requests without sending them;
+- search and inspect stored traffic in a split-pane Request Explorer;
+- replay a request with per-hop redirect scope checks;
+- persist imported requests, replay responses, and engagement state in SQLite.
+
+Candidate analysis, identities, differential comparison, findings, evidence, attack chains, reports, crawling, and the deterministic demo target remain later milestones.
 
 ## Architecture
 
@@ -21,7 +30,46 @@ The backend validates scheme, hostname, port, and path restrictions before outbo
 
 ## Development
 
-Detailed setup commands will be added once the first runnable vertical slice is validated. Python 3.13+ and a current Node.js LTS release are the intended local toolchain.
+Prerequisites: Python 3.13+, `uv`, and Node.js 22.17+.
+
+```bash
+uv sync --project backend --all-groups
+npm ci --prefix frontend
+```
+
+Run the API and frontend in separate terminals:
+
+```bash
+uv run --project backend uvicorn faultweaver.app:app --reload
+npm run dev --prefix frontend
+```
+
+Open `http://localhost:5173`. The frontend proxies `/api` to `http://localhost:8000` by default. Local state is stored in `data/faultweaver.db`.
+
+Run the validated checks:
+
+```bash
+make backend-lint backend-test
+make frontend-check frontend-test frontend-build
+```
+
+## Docker Compose
+
+```bash
+docker compose up --build
+```
+
+The workspace is available at `http://localhost:5173`, the API at `http://localhost:8000`, and SQLite data is retained in the `faultweaver-data` volume.
+
+## First workflow
+
+1. Create an engagement.
+2. Add an authorized scope rule. Scope must match before import and immediately before every outbound request or redirect.
+3. Import a raw request from Request Explorer.
+4. Select the stored request and choose **Replay**.
+5. Inspect the persisted replay response. A replay is traffic evidence, not a confirmed vulnerability.
+
+See [Architecture](docs/architecture.md) for the current boundaries and design decisions.
 
 ## Security model
 
@@ -29,4 +77,4 @@ Faultweaver favors conservative request limits and explicit operator actions. It
 
 ## License
 
-Apache-2.0.
+MIT.

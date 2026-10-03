@@ -19,6 +19,7 @@ services:
     build:
       context: ./frontend
     environment:
+      FAULTWEAVER_API_URL: http://api:8000
       HOST: 0.0.0.0
       PORT: 5173
     ports:
