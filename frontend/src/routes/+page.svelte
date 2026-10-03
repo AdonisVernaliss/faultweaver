@@ -2,7 +2,11 @@
   import { onMount } from 'svelte';
 
   import { api } from '../lib/api';
+  import AuthorizationMatrix from '../lib/components/AuthorizationMatrix.svelte';
+  import CandidatePanel from '../lib/components/CandidatePanel.svelte';
+  import ComparisonDialog from '../lib/components/ComparisonDialog.svelte';
   import CreateEngagementDialog from '../lib/components/CreateEngagementDialog.svelte';
+  import IdentityPanel from '../lib/components/IdentityPanel.svelte';
   import ImportDialog from '../lib/components/ImportDialog.svelte';
   import RequestExplorer from '../lib/components/RequestExplorer.svelte';
   import ScopeDialog from '../lib/components/ScopeDialog.svelte';
@@ -10,9 +14,13 @@
   import type {
     Engagement,
     EngagementDetail,
+    AuthorizationMatrix as Matrix,
+    Candidate,
+    Comparison,
     Exchange,
     ExchangeDetail,
     ExchangeList,
+    Identity,
     ScopeRule
   } from '../lib/types';
 
@@ -20,13 +28,18 @@
   let engagement = $state<EngagementDetail | null>(null);
   let scopes = $state<ScopeRule[]>([]);
   let requests = $state<Exchange[]>([]);
+  let identities = $state<Identity[]>([]);
+  let matrix = $state<Matrix>({ identities: [], rows: [] });
+  let candidates = $state<Candidate[]>([]);
   let selected = $state<ExchangeDetail | null>(null);
+  let activeView = $state<'requests' | 'identities' | 'matrix' | 'candidates'>('requests');
   let loading = $state(true);
   let loadingDetail = $state(false);
   let replaying = $state(false);
   let createDialog = $state(false);
   let scopeDialog = $state(false);
   let importDialog = $state(false);
+  let comparisonDialog = $state(false);
   let error = $state('');
   let notice = $state('');
 
@@ -57,14 +70,20 @@
     error = '';
     selected = null;
     try {
-      const [detail, scopeRules, traffic] = await Promise.all([
+      const [detail, scopeRules, traffic, identityContexts, authMatrix, candidateItems] = await Promise.all([
         api<EngagementDetail>(`engagements/${id}`),
         api<ScopeRule[]>(`engagements/${id}/scopes`),
-        api<ExchangeList>(`engagements/${id}/requests`)
+        api<ExchangeList>(`engagements/${id}/requests`),
+        api<Identity[]>(`engagements/${id}/identities`),
+        api<Matrix>(`engagements/${id}/authorization-matrix`),
+        api<Candidate[]>(`engagements/${id}/candidates`)
       ]);
       engagement = detail;
       scopes = scopeRules;
       requests = traffic.items;
+      identities = identityContexts;
+      matrix = authMatrix;
+      candidates = candidateItems;
       localStorage.setItem('faultweaver.engagement', id);
       if (requests.length) await selectRequest(requests[0].id);
     } catch (cause) {
@@ -77,6 +96,19 @@
     const traffic = await api<ExchangeList>(`engagements/${engagement.id}/requests`);
     requests = traffic.items;
     if (selectId) await selectRequest(selectId);
+  }
+
+  async function refreshIdentities() {
+    if (!engagement) return;
+    identities = await api<Identity[]>(`engagements/${engagement.id}/identities`);
+  }
+
+  async function refreshAnalysis() {
+    if (!engagement) return;
+    [matrix, candidates] = await Promise.all([
+      api<Matrix>(`engagements/${engagement.id}/authorization-matrix`),
+      api<Candidate[]>(`engagements/${engagement.id}/candidates`)
+    ]);
   }
 
   async function selectRequest(id: string) {
@@ -107,6 +139,16 @@
     } finally {
       replaying = false;
     }
+  }
+
+  function compared(_: Comparison) {
+    void Promise.all([refreshRequests(), refreshAnalysis()]);
+    showNotice('Comparison and replay evidence saved locally');
+  }
+
+  function openEvidence(id: string) {
+    activeView = 'requests';
+    void selectRequest(id);
   }
 
   function createdEngagement(created: Engagement) {
@@ -156,7 +198,15 @@
 </svelte:head>
 
 <div class="app-shell">
-  <Sidebar {engagement} requestCount={requests.length} oncreate={() => (createDialog = true)} />
+  <Sidebar
+    {engagement}
+    requestCount={requests.length}
+    identityCount={identities.length}
+    candidateCount={candidates.length}
+    {activeView}
+    onview={(view) => (activeView = view)}
+    oncreate={() => (createDialog = true)}
+  />
 
   <main class="main-workspace">
     <header class="topbar">
@@ -215,15 +265,25 @@
         </button>
       </section>
 
-      <RequestExplorer
-        {requests}
-        {selected}
-        {loadingDetail}
-        {replaying}
-        onselect={selectRequest}
-        onreplay={replaySelected}
-        onimport={openImport}
-      />
+      {#if activeView === 'requests'}
+        <RequestExplorer
+          {requests}
+          {selected}
+          {loadingDetail}
+          {replaying}
+          {identities}
+          onselect={selectRequest}
+          onreplay={replaySelected}
+          oncompare={() => (comparisonDialog = true)}
+          onimport={openImport}
+        />
+      {:else if activeView === 'identities'}
+        <IdentityPanel engagementId={engagement.id} {identities} onchanged={refreshIdentities} />
+      {:else if activeView === 'matrix'}
+        <AuthorizationMatrix {matrix} onopen={openEvidence} />
+      {:else}
+        <CandidatePanel engagementId={engagement.id} {candidates} onchanged={refreshAnalysis} />
+      {/if}
     {:else}
       <section class="first-run">
         <span class="eyebrow">LOCAL-FIRST ASSESSMENT WORKSPACE</span>
@@ -258,5 +318,13 @@
     initialBaseUrl={scopeUrl(scopes[0])}
     onclose={() => (importDialog = false)}
     onimported={importedRequest}
+  />
+{/if}
+{#if comparisonDialog && selected}
+  <ComparisonDialog
+    request={selected}
+    {identities}
+    onclose={() => (comparisonDialog = false)}
+    oncompared={compared}
   />
 {/if}

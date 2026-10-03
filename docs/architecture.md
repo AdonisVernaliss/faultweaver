@@ -7,8 +7,10 @@ Browser
   -> SvelteKit workspace and same-origin API proxy
        -> FastAPI application
             -> engagement and scope domains
+            -> engagement-scoped identity contexts
             -> HTTP parser and traffic repository
             -> scope-gated replay client
+            -> response normalization, structured diff, and candidate analysis
             -> SQLite
 ```
 
@@ -17,10 +19,12 @@ Browser
 - `engagements` owns engagement metadata and lifecycle state.
 - `scope` normalizes and compares scheme, hostname, effective port, and canonical path prefixes.
 - `http_traffic` parses imported requests, stores request/response records, renders raw requests, and performs replay.
+- `identities` owns local authentication contexts and applies them only within their engagement.
+- `analysis` normalizes bounded responses, stores explainable comparisons, derives the authorization matrix, and emits conservative candidates.
 
 Every replay URL is checked in the networking layer before a request is sent. Redirects are handled one hop at a time and checked before following. Sensitive authorization and cookie headers are removed if a redirect changes origin. Response capture is bounded to one megabyte by default.
 
-The current pre-release schema is created on startup. A migration system will be added before schema compatibility is promised.
+Packaged Alembic migrations run on startup. The baseline revision can adopt the original pre-migration schema after validating every expected table and column; later revisions evolve it without dropping stored engagements or traffic.
 
 ## Frontend boundaries
 
@@ -28,7 +32,9 @@ The SvelteKit application is a client-rendered local workspace. Its server route
 
 ## Persistence
 
-SQLite is the source of truth. The default local database is `data/faultweaver.db`; Compose mounts `/data/faultweaver.db` from a named volume. Imported requests and replays are separate records linked through `parent_exchange_id`.
+SQLite is the source of truth. The default local database is `data/faultweaver.db`; Compose mounts `/data/faultweaver.db` from a named volume. Imported requests and replays are separate records linked through `parent_exchange_id`. Comparisons link an immutable original to both replay records and their identity contexts; candidates link back to the comparison and supporting replays.
+
+Replay credentials remain in the local database. Public API serializers and the UI redact authorization, cookie, API-key, and common structured body secret fields by default. Normalized and comparison records are derived from redacted response material.
 
 ## Safety defaults
 

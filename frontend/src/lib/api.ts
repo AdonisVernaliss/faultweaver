@@ -24,13 +24,15 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
     try {
-      const error = (await response.json()) as { detail?: string };
-      if (error.detail) message = error.detail;
+      const error = (await response.json()) as { detail?: unknown };
+      if (typeof error.detail === 'string') message = error.detail;
+      else if (error.detail) message = 'The submitted data was not accepted';
     } catch {
       // Preserve the HTTP status text when the API did not return JSON.
     }
     throw new ApiError(message, response.status);
   }
 
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }

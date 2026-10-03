@@ -1,22 +1,26 @@
 <script lang="ts">
   import { formatDuration, requestTarget, sourceLabel } from '../format';
-  import type { Exchange, ExchangeDetail } from '../types';
+  import type { Exchange, ExchangeDetail, Identity } from '../types';
 
   let {
     requests,
     selected,
     loadingDetail,
     replaying,
+    identities,
     onselect,
     onreplay,
+    oncompare,
     onimport
   }: {
     requests: Exchange[];
     selected: ExchangeDetail | null;
     loadingDetail: boolean;
     replaying: boolean;
+    identities: Identity[];
     onselect: (id: string) => void;
     onreplay: () => void;
+    oncompare: () => void;
     onimport: () => void;
   } = $props();
 
@@ -110,15 +114,16 @@
             <span class:post={selected.method === 'POST'} class="method-badge">{selected.method}</span>
             <div><strong>{requestTarget(selected.path, selected.query)}</strong><small>{selected.url}</small></div>
           </div>
-          <button class="button replay" type="button" onclick={onreplay} disabled={replaying}>
-            {replaying ? 'Replaying…' : '▶ Replay'}
-          </button>
+          <div class="detail-actions">
+            <button class="button ghost" type="button" onclick={oncompare} disabled={identities.length < 2}>⇄ Compare identities</button>
+            <button class="button replay" type="button" onclick={onreplay} disabled={replaying}>{replaying ? 'Replaying…' : '▶ Replay'}</button>
+          </div>
         </header>
 
         <div class="detail-metrics">
           <span><small>STATUS</small><strong>{selected.response_status ?? 'Not sent'}</strong></span>
           <span><small>DURATION</small><strong>{formatDuration(selected.response_elapsed_ms)}</strong></span>
-          <span><small>IDENTITY</small><strong>anonymous</strong></span>
+          <span><small>AUTH SOURCE</small><strong>{selected.auth_source}</strong></span>
           <span><small>SOURCE</small><strong>{sourceLabel(selected.source)}</strong></span>
         </div>
 

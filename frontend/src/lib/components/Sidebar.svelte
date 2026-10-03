@@ -4,10 +4,22 @@
   let {
     engagement,
     requestCount,
+    identityCount,
+    candidateCount,
+    activeView,
+    onview,
     oncreate
-  }: { engagement: EngagementDetail | null; requestCount: number; oncreate: () => void } = $props();
+  }: {
+    engagement: EngagementDetail | null;
+    requestCount: number;
+    identityCount: number;
+    candidateCount: number;
+    activeView: 'requests' | 'identities' | 'matrix' | 'candidates';
+    onview: (view: 'requests' | 'identities' | 'matrix' | 'candidates') => void;
+    oncreate: () => void;
+  } = $props();
 
-  const futureSections = ['Identities', 'Candidates', 'Findings', 'Evidence', 'Attack Chains', 'Report'];
+  const futureSections = ['Findings', 'Evidence', 'Attack Chains', 'Report'];
 </script>
 
 <aside class="sidebar">
@@ -30,12 +42,12 @@
   </div>
 
   <nav aria-label="Engagement workspace">
-    <a class="nav-item active" href="#request-explorer" aria-current="page">
+    <button class:active={activeView === 'requests'} class="nav-item" type="button" onclick={() => onview('requests')} aria-current={activeView === 'requests' ? 'page' : undefined}>
       <span class="nav-glyph">↗</span><span>Requests</span><em>{requestCount}</em>
-    </a>
-    <a class="nav-item" href="#scope">
-      <span class="nav-glyph">⌾</span><span>Scope</span>
-    </a>
+    </button>
+    <button class:active={activeView === 'identities'} class="nav-item" type="button" onclick={() => onview('identities')}><span class="nav-glyph">◎</span><span>Identities</span><em>{identityCount}</em></button>
+    <button class:active={activeView === 'matrix'} class="nav-item" type="button" onclick={() => onview('matrix')}><span class="nav-glyph">▦</span><span>Auth matrix</span></button>
+    <button class:active={activeView === 'candidates'} class="nav-item" type="button" onclick={() => onview('candidates')}><span class="nav-glyph">◇</span><span>Candidates</span><em>{candidateCount}</em></button>
     {#each futureSections as section}
       <span class="nav-item disabled" aria-disabled="true">
         <span class="nav-glyph">·</span><span>{section}</span><small>LATER</small>

@@ -4,9 +4,10 @@
   let {
     eyebrow,
     title,
+    wide = false,
     onclose,
     children
-  }: { eyebrow: string; title: string; onclose: () => void; children: Snippet } = $props();
+  }: { eyebrow: string; title: string; wide?: boolean; onclose: () => void; children: Snippet } = $props();
 
   function onBackdrop(event: MouseEvent) {
     if (event.target === event.currentTarget) onclose();
@@ -16,7 +17,7 @@
 <svelte:window onkeydown={(event) => event.key === 'Escape' && onclose()} />
 
 <div class="dialog-backdrop" role="presentation" onclick={onBackdrop}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+  <div class:wide class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
     <header class="dialog-header">
       <div>
         <span class="eyebrow">{eyebrow}</span>

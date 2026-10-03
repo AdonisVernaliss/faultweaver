@@ -9,16 +9,22 @@ Faultweaver is not a promise of complete vulnerability coverage. Automated obser
 
 ## Current status
 
-Faultweaver is pre-release software. The first functional vertical slice is available:
+Faultweaver is pre-release software. The current vertical slice includes:
 
 - create and reopen engagements;
 - authorize exact scheme, hostname, port, and path-prefix scope rules;
 - import raw HTTP requests without sending them;
 - search and inspect stored traffic in a split-pane Request Explorer;
-- replay a request with per-hop redirect scope checks;
-- persist imported requests, replay responses, and engagement state in SQLite.
+- define engagement-scoped anonymous, bearer, API-key, cookie, and custom-header identities;
+- replay a request with explicit auth provenance and per-hop redirect scope checks;
+- compare the same request across two identities with normalized text and structured JSON diffs;
+- inspect saved evidence in an authorization matrix;
+- review conservative authorization-inconsistency candidates without automatic confirmation;
+- redact common secrets in API and workspace views while retaining replay material locally;
+- persist imported requests, replay responses, comparisons, candidates, and engagement state in SQLite;
+- upgrade fresh or existing pre-migration databases through packaged Alembic migrations.
 
-Candidate analysis, identities, differential comparison, findings, evidence, attack chains, reports, crawling, and the deterministic demo target remain later milestones.
+Confirmed findings, evidence packaging, attack chains, reports, crawling, credential encryption, and the deterministic demo target remain later milestones.
 
 ## Architecture
 
@@ -67,13 +73,19 @@ The workspace is available at `http://localhost:5173`, the API at `http://localh
 2. Add an authorized scope rule. Scope must match before import and immediately before every outbound request or redirect.
 3. Import a raw request from Request Explorer.
 4. Select the stored request and choose **Replay**.
-5. Inspect the persisted replay response. A replay is traffic evidence, not a confirmed vulnerability.
+5. Add at least two identity contexts.
+6. Choose **Compare identities** from the original request and save the two replays plus response diff.
+7. Inspect observed statuses in **Auth matrix** and review any conservative **Candidates**.
+
+A replay or candidate is traffic evidence, not a confirmed vulnerability. Candidate confirmation is always a manual operator decision.
 
 See [Architecture](docs/architecture.md) for the current boundaries and design decisions.
 
 ## Security model
 
 Faultweaver favors conservative request limits and explicit operator actions. It does not implement credential attacks, denial of service, persistence, destructive modification, malware deployment, shell exploitation, or stealth/evasion capabilities.
+
+Identity credentials are stored in the local SQLite database so replay remains possible. API responses, validation errors, logs, and UI views redact common secret-bearing headers and structured body fields, but the database itself must be protected as sensitive assessment data.
 
 ## License
 
