@@ -22,6 +22,13 @@ class HttpExchange(Base):
     identity_id: Mapped[str | None] = mapped_column(
         ForeignKey("identities.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    import_batch_id: Mapped[str | None] = mapped_column(
+        ForeignKey("import_batches.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    endpoint_id: Mapped[str | None] = mapped_column(
+        ForeignKey("attack_surface_endpoints.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    source_entry_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     auth_source: Mapped[str] = mapped_column(String(24), default="original")
     operator_modified: Mapped[bool] = mapped_column(Boolean, default=False)
     source: Mapped[str] = mapped_column(String(32))

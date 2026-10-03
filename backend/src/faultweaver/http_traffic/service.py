@@ -77,6 +77,7 @@ def build_replay_exchange(
         engagement_id=original.engagement_id,
         parent_exchange_id=original.id,
         identity_id=identity.id if identity is not None else None,
+        endpoint_id=original.endpoint_id,
         auth_source=auth_source,
         operator_modified=bool(
             {"method", "url", "headers", "body"}.intersection(payload.model_fields_set)

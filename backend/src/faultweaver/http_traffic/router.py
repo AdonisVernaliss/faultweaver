@@ -27,6 +27,7 @@ from faultweaver.http_traffic.schemas import (
     public_exchange,
 )
 from faultweaver.http_traffic.service import build_replay_exchange
+from faultweaver.imports.service import attach_exchange_endpoint
 from faultweaver.scope.models import ScopeRule
 from faultweaver.scope.rules import ScopeRuleValue, is_url_in_scope
 
@@ -87,6 +88,8 @@ def import_raw_request(
         request_body=parsed.body,
     )
     session.add(exchange)
+    session.flush()
+    attach_exchange_endpoint(session, exchange, source="raw_import")
     session.commit()
     session.refresh(exchange)
     return public_exchange(exchange)
@@ -99,6 +102,7 @@ def list_requests(
     q: str | None = None,
     method: str | None = None,
     response_status: int | None = None,
+    source: str | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ExchangeList:
@@ -111,6 +115,8 @@ def list_requests(
         filters.append(HttpExchange.method == method.upper())
     if response_status is not None:
         filters.append(HttpExchange.response_status == response_status)
+    if source:
+        filters.append(HttpExchange.source == source)
 
     total = session.scalar(select(func.count()).select_from(HttpExchange).where(*filters)) or 0
     items = list(

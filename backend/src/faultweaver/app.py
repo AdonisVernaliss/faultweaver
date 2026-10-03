@@ -18,6 +18,7 @@ from faultweaver.engagements.router import router as engagements_router
 from faultweaver.findings.router import router as findings_router
 from faultweaver.http_traffic.router import router as http_traffic_router
 from faultweaver.identities.router import router as identities_router
+from faultweaver.imports.router import router as imports_router
 from faultweaver.migrations.runner import upgrade_database
 from faultweaver.redaction import install_log_redaction, sanitize_for_log
 from faultweaver.scope.router import router as scope_router
@@ -74,6 +75,7 @@ def create_app(
     app.include_router(analysis_router)
     app.include_router(findings_router)
     app.include_router(attack_chains_router)
+    app.include_router(imports_router)
 
     return app
 

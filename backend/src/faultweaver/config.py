@@ -10,6 +10,10 @@ class Settings:
     request_timeout_seconds: float = 10.0
     max_response_bytes: int = 1_000_000
     max_redirects: int = 5
+    max_import_bytes: int = 10_000_000
+    max_import_entries: int = 5_000
+    max_import_request_body_bytes: int = 1_000_000
+    max_import_response_body_bytes: int = 1_000_000
 
     @classmethod
     def from_environment(cls) -> "Settings":

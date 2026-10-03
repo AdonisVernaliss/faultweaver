@@ -35,6 +35,9 @@ class ExchangeResponse(BaseModel):
     engagement_id: str
     parent_exchange_id: str | None
     identity_id: str | None
+    import_batch_id: str | None
+    endpoint_id: str | None
+    source_entry_index: int | None
     auth_source: str
     operator_modified: bool
     source: str
@@ -69,6 +72,9 @@ def public_exchange(exchange: object) -> ExchangeResponse:
         engagement_id=exchange.engagement_id,  # type: ignore[attr-defined]
         parent_exchange_id=exchange.parent_exchange_id,  # type: ignore[attr-defined]
         identity_id=exchange.identity_id,  # type: ignore[attr-defined]
+        import_batch_id=exchange.import_batch_id,  # type: ignore[attr-defined]
+        endpoint_id=exchange.endpoint_id,  # type: ignore[attr-defined]
+        source_entry_index=exchange.source_entry_index,  # type: ignore[attr-defined]
         auth_source=exchange.auth_source,  # type: ignore[attr-defined]
         operator_modified=exchange.operator_modified,  # type: ignore[attr-defined]
         source=exchange.source,  # type: ignore[attr-defined]
