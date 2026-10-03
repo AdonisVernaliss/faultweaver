@@ -48,15 +48,15 @@
   </div>
 
   <nav aria-label="Engagement workspace">
-    <button class:active={activeView === 'requests'} class="nav-item" type="button" onclick={() => onview('requests')} aria-current={activeView === 'requests' ? 'page' : undefined}>
+    <button aria-label="Requests" class:active={activeView === 'requests'} class="nav-item" type="button" onclick={() => onview('requests')} aria-current={activeView === 'requests' ? 'page' : undefined}>
       <span class="nav-glyph">↗</span><span>Requests</span><em>{requestCount}</em>
     </button>
-    <button class:active={activeView === 'identities'} class="nav-item" type="button" onclick={() => onview('identities')}><span class="nav-glyph">◎</span><span>Identities</span><em>{identityCount}</em></button>
-    <button class:active={activeView === 'matrix'} class="nav-item" type="button" onclick={() => onview('matrix')}><span class="nav-glyph">▦</span><span>Auth matrix</span></button>
-    <button class:active={activeView === 'candidates'} class="nav-item" type="button" onclick={() => onview('candidates')}><span class="nav-glyph">◇</span><span>Candidates</span><em>{candidateCount}</em></button>
-    <button class:active={activeView === 'findings'} class="nav-item" type="button" onclick={() => onview('findings')}><span class="nav-glyph">◆</span><span>Findings</span><em>{findingCount}</em></button>
-    <button class:active={activeView === 'evidence'} class="nav-item" type="button" onclick={() => onview('evidence')}><span class="nav-glyph">▣</span><span>Evidence</span><em>{evidenceCount}</em></button>
-    <button class:active={activeView === 'retests'} class="nav-item" type="button" onclick={() => onview('retests')}><span class="nav-glyph">↻</span><span>Retests</span><em>{retestCount}</em></button>
+    <button aria-label="Identities" class:active={activeView === 'identities'} class="nav-item" type="button" onclick={() => onview('identities')}><span class="nav-glyph">◎</span><span>Identities</span><em>{identityCount}</em></button>
+    <button aria-label="Auth matrix" class:active={activeView === 'matrix'} class="nav-item" type="button" onclick={() => onview('matrix')}><span class="nav-glyph">▦</span><span>Auth matrix</span></button>
+    <button aria-label="Candidates" class:active={activeView === 'candidates'} class="nav-item" type="button" onclick={() => onview('candidates')}><span class="nav-glyph">◇</span><span>Candidates</span><em>{candidateCount}</em></button>
+    <button aria-label="Findings" class:active={activeView === 'findings'} class="nav-item" type="button" onclick={() => onview('findings')}><span class="nav-glyph">◆</span><span>Findings</span><em>{findingCount}</em></button>
+    <button aria-label="Evidence" class:active={activeView === 'evidence'} class="nav-item" type="button" onclick={() => onview('evidence')}><span class="nav-glyph">▣</span><span>Evidence</span><em>{evidenceCount}</em></button>
+    <button aria-label="Retests" class:active={activeView === 'retests'} class="nav-item" type="button" onclick={() => onview('retests')}><span class="nav-glyph">↻</span><span>Retests</span><em>{retestCount}</em></button>
     {#each futureSections as section}
       <span class="nav-item disabled" aria-disabled="true">
         <span class="nav-glyph">·</span><span>{section}</span><small>LATER</small>
