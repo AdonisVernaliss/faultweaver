@@ -3,9 +3,11 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from faultweaver.analysis import models as analysis_models  # noqa: F401
 from faultweaver.database import Base
 from faultweaver.engagements import models as engagement_models  # noqa: F401
 from faultweaver.http_traffic import models as http_models  # noqa: F401
+from faultweaver.identities import models as identity_models  # noqa: F401
 from faultweaver.scope import models as scope_models  # noqa: F401
 
 config = context.config

@@ -74,16 +74,31 @@ def parse_raw_request(raw: str, base_url: str) -> ParsedRequest:
 
 
 def render_raw_request(exchange: object) -> str:
-    target = exchange.path  # type: ignore[attr-defined]
-    if exchange.query:  # type: ignore[attr-defined]
-        target = f"{target}?{exchange.query}"  # type: ignore[attr-defined]
-    lines = [f"{exchange.method} {target} HTTP/1.1"]  # type: ignore[attr-defined]
+    return render_raw_request_parts(
+        method=exchange.method,  # type: ignore[attr-defined]
+        path=exchange.path,  # type: ignore[attr-defined]
+        query=exchange.query,  # type: ignore[attr-defined]
+        headers=exchange.request_headers,  # type: ignore[attr-defined]
+        body=exchange.request_body,  # type: ignore[attr-defined]
+    )
+
+
+def render_raw_request_parts(
+    *,
+    method: str,
+    path: str,
+    query: str,
+    headers: list[dict[str, str]],
+    body: str | None,
+) -> str:
+    target = f"{path}?{query}" if query else path
+    lines = [f"{method} {target} HTTP/1.1"]
     lines.extend(
         f"{header['name']}: {header['value']}"
-        for header in exchange.request_headers  # type: ignore[attr-defined]
+        for header in headers
     )
     lines.append("")
-    lines.append(exchange.request_body or "")  # type: ignore[attr-defined]
+    lines.append(body or "")
     return "\r\n".join(lines)
 
 

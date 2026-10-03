@@ -5,6 +5,8 @@ from urllib.parse import urljoin
 import httpx
 
 from faultweaver.http_traffic.schemas import HeaderEntry
+from faultweaver.identities.models import Identity
+from faultweaver.redaction import is_sensitive_header
 from faultweaver.scope.rules import ScopeRuleValue, is_url_in_scope, split_http_url
 
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
@@ -43,6 +45,34 @@ class ReplayResult:
     elapsed_ms: float
     response_truncated: bool
     redirect_chain: list[str]
+
+
+def apply_identity(
+    headers: list[HeaderEntry],
+    identity: Identity,
+    *,
+    managed_header_names: set[str],
+) -> list[HeaderEntry]:
+    """Replace known authentication material without changing unrelated headers."""
+    retained = [
+        header
+        for header in headers
+        if not is_sensitive_header(header.name)
+        and header.name.lower() not in managed_header_names
+    ]
+    if identity.is_anonymous:
+        return retained
+    if identity.bearer_token is not None:
+        retained.append(HeaderEntry(name="Authorization", value=f"Bearer {identity.bearer_token}"))
+    if identity.api_key_header is not None and identity.api_key_value is not None:
+        retained.append(HeaderEntry(name=identity.api_key_header, value=identity.api_key_value))
+    if identity.cookies:
+        cookie_value = "; ".join(
+            f"{cookie['name']}={cookie['value']}" for cookie in identity.cookies
+        )
+        retained.append(HeaderEntry(name="Cookie", value=cookie_value))
+    retained.extend(HeaderEntry.model_validate(item) for item in identity.custom_headers)
+    return retained
 
 
 def execute_replay(

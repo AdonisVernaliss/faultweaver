@@ -10,10 +10,15 @@ from sqlalchemy.orm import Session
 from faultweaver.database import get_session
 from faultweaver.engagements.router import get_engagement_or_404
 from faultweaver.http_traffic.models import HttpExchange
-from faultweaver.http_traffic.parser import HttpParseError, parse_raw_request, render_raw_request
+from faultweaver.http_traffic.parser import (
+    HttpParseError,
+    parse_raw_request,
+    render_raw_request_parts,
+)
 from faultweaver.http_traffic.replay import (
     RedirectLimitError,
     ScopeViolationError,
+    apply_identity,
     execute_replay,
 )
 from faultweaver.http_traffic.schemas import (
@@ -23,7 +28,9 @@ from faultweaver.http_traffic.schemas import (
     HeaderEntry,
     RawImportCreate,
     ReplayCreate,
+    public_exchange,
 )
+from faultweaver.identities.models import Identity
 from faultweaver.scope.models import ScopeRule
 from faultweaver.scope.rules import ScopeRuleValue, is_url_in_scope, split_http_url
 
@@ -58,7 +65,7 @@ def import_raw_request(
     engagement_id: str,
     payload: RawImportCreate,
     session: SessionDep,
-) -> HttpExchange:
+) -> ExchangeResponse:
     get_engagement_or_404(session, engagement_id)
     try:
         parsed = parse_raw_request(payload.raw, str(payload.base_url))
@@ -86,7 +93,7 @@ def import_raw_request(
     session.add(exchange)
     session.commit()
     session.refresh(exchange)
-    return exchange
+    return public_exchange(exchange)
 
 
 @router.get("/api/engagements/{engagement_id}/requests", response_model=ExchangeList)
@@ -120,7 +127,7 @@ def list_requests(
         )
     )
     return ExchangeList(
-        items=[ExchangeResponse.model_validate(item) for item in items], total=total
+        items=[public_exchange(item) for item in items], total=total
     )
 
 
@@ -129,9 +136,16 @@ def get_request(request_id: str, session: SessionDep) -> dict[str, object]:
     exchange = session.get(HttpExchange, request_id)
     if exchange is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+    public = public_exchange(exchange)
     return {
-        **ExchangeResponse.model_validate(exchange).model_dump(),
-        "raw_request": render_raw_request(exchange),
+        **public.model_dump(),
+        "raw_request": render_raw_request_parts(
+            method=public.method,
+            path=public.path,
+            query=public.query,
+            headers=[header.model_dump() for header in public.request_headers],
+            body=public.request_body,
+        ),
     }
 
 
@@ -145,17 +159,45 @@ def replay_request(
     payload: ReplayCreate,
     request: Request,
     session: SessionDep,
-) -> HttpExchange:
+) -> ExchangeResponse:
     original = session.get(HttpExchange, request_id)
     if original is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
 
     method = payload.method or original.method
     url = str(payload.url) if payload.url is not None else original.url
-    headers = payload.headers or [
+    headers = payload.headers if payload.headers is not None else [
         HeaderEntry.model_validate(item) for item in original.request_headers
     ]
     body = payload.body if "body" in payload.model_fields_set else original.request_body
+    identity: Identity | None = None
+    auth_source = "original"
+    if payload.identity_id is not None:
+        identity = session.scalar(
+            select(Identity).where(
+                Identity.id == payload.identity_id,
+                Identity.engagement_id == original.engagement_id,
+            )
+        )
+        if identity is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found"
+            )
+        engagement_identities = session.scalars(
+            select(Identity).where(Identity.engagement_id == original.engagement_id)
+        )
+        managed_header_names = {
+            name.lower()
+            for item in engagement_identities
+            for name in (
+                *[header["name"] for header in item.custom_headers],
+                *([item.api_key_header] if item.api_key_header else []),
+            )
+        }
+        headers = apply_identity(
+            headers, identity, managed_header_names=managed_header_names
+        )
+        auth_source = "identity"
     settings = request.app.state.settings
 
     try:
@@ -182,6 +224,11 @@ def replay_request(
     replay = HttpExchange(
         engagement_id=original.engagement_id,
         parent_exchange_id=original.id,
+        identity_id=identity.id if identity is not None else None,
+        auth_source=auth_source,
+        operator_modified=bool(
+            {"method", "url", "headers", "body"}.intersection(payload.model_fields_set)
+        ),
         source="replay",
         method=result.method,
         url=result.url,
@@ -200,4 +247,4 @@ def replay_request(
     session.add(replay)
     session.commit()
     session.refresh(replay)
-    return replay
+    return public_exchange(replay)

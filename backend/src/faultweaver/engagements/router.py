@@ -12,6 +12,7 @@ from faultweaver.engagements.schemas import (
     EngagementResponse,
 )
 from faultweaver.http_traffic.models import HttpExchange
+from faultweaver.identities.models import Identity
 from faultweaver.scope.models import ScopeRule
 
 router = APIRouter(prefix="/api/engagements", tags=["engagements"])
@@ -29,6 +30,15 @@ def get_engagement_or_404(session: Session, engagement_id: str) -> Engagement:
 def create_engagement(payload: EngagementCreate, session: SessionDep) -> Engagement:
     engagement = Engagement(name=payload.name, description=payload.description)
     session.add(engagement)
+    session.flush()
+    session.add(
+        Identity(
+            engagement_id=engagement.id,
+            name="Anonymous",
+            description="No authentication material",
+            is_anonymous=True,
+        )
+    )
     session.commit()
     session.refresh(engagement)
     return engagement

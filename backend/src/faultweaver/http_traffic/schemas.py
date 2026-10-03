@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
+from faultweaver.redaction import redact_body, redact_headers
+
 
 class HeaderEntry(BaseModel):
     name: str
@@ -14,6 +16,7 @@ class RawImportCreate(BaseModel):
 
 
 class ReplayCreate(BaseModel):
+    identity_id: str | None = None
     method: str | None = Field(default=None, min_length=1, max_length=16)
     url: AnyHttpUrl | None = None
     headers: list[HeaderEntry] | None = None
@@ -31,6 +34,9 @@ class ExchangeResponse(BaseModel):
     id: str
     engagement_id: str
     parent_exchange_id: str | None
+    identity_id: str | None
+    auth_source: str
+    operator_modified: bool
     source: str
     method: str
     url: str
@@ -55,3 +61,29 @@ class ExchangeDetail(ExchangeResponse):
 class ExchangeList(BaseModel):
     items: list[ExchangeResponse]
     total: int
+
+
+def public_exchange(exchange: object) -> ExchangeResponse:
+    return ExchangeResponse(
+        id=exchange.id,  # type: ignore[attr-defined]
+        engagement_id=exchange.engagement_id,  # type: ignore[attr-defined]
+        parent_exchange_id=exchange.parent_exchange_id,  # type: ignore[attr-defined]
+        identity_id=exchange.identity_id,  # type: ignore[attr-defined]
+        auth_source=exchange.auth_source,  # type: ignore[attr-defined]
+        operator_modified=exchange.operator_modified,  # type: ignore[attr-defined]
+        source=exchange.source,  # type: ignore[attr-defined]
+        method=exchange.method,  # type: ignore[attr-defined]
+        url=exchange.url,  # type: ignore[attr-defined]
+        host=exchange.host,  # type: ignore[attr-defined]
+        path=exchange.path,  # type: ignore[attr-defined]
+        query=exchange.query,  # type: ignore[attr-defined]
+        request_headers=redact_headers(exchange.request_headers),  # type: ignore[attr-defined]
+        request_body=redact_body(exchange.request_body),  # type: ignore[attr-defined]
+        response_status=exchange.response_status,  # type: ignore[attr-defined]
+        response_headers=redact_headers(exchange.response_headers),  # type: ignore[attr-defined]
+        response_body=redact_body(exchange.response_body),  # type: ignore[attr-defined]
+        response_elapsed_ms=exchange.response_elapsed_ms,  # type: ignore[attr-defined]
+        response_truncated=exchange.response_truncated,  # type: ignore[attr-defined]
+        redirect_chain=exchange.redirect_chain,  # type: ignore[attr-defined]
+        created_at=exchange.created_at,  # type: ignore[attr-defined]
+    )

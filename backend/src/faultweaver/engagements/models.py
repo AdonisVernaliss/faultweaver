@@ -44,7 +44,11 @@ class Engagement(Base):
     exchanges: Mapped[list[HttpExchange]] = relationship(
         back_populates="engagement", cascade="all, delete-orphan"
     )
+    identities: Mapped[list[Identity]] = relationship(
+        back_populates="engagement", cascade="all, delete-orphan"
+    )
 
 
 from faultweaver.http_traffic.models import HttpExchange  # noqa: E402
+from faultweaver.identities.models import Identity  # noqa: E402
 from faultweaver.scope.models import ScopeRule  # noqa: E402

@@ -19,6 +19,11 @@ class HttpExchange(Base):
     parent_exchange_id: Mapped[str | None] = mapped_column(
         ForeignKey("http_exchanges.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    identity_id: Mapped[str | None] = mapped_column(
+        ForeignKey("identities.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    auth_source: Mapped[str] = mapped_column(String(24), default="original")
+    operator_modified: Mapped[bool] = mapped_column(Boolean, default=False)
     source: Mapped[str] = mapped_column(String(32))
     method: Mapped[str] = mapped_column(String(16), index=True)
     url: Mapped[str] = mapped_column(Text)
@@ -37,6 +42,8 @@ class HttpExchange(Base):
 
     engagement: Mapped[Engagement] = relationship(back_populates="exchanges")
     parent: Mapped[HttpExchange | None] = relationship(remote_side=[id])
+    identity: Mapped[Identity | None] = relationship()
 
 
 from faultweaver.engagements.models import Engagement  # noqa: E402
+from faultweaver.identities.models import Identity  # noqa: E402

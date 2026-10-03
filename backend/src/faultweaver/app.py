@@ -11,7 +11,9 @@ from faultweaver.config import Settings
 from faultweaver.database import create_session_factory, get_session, session_dependency
 from faultweaver.engagements.router import router as engagements_router
 from faultweaver.http_traffic.router import router as http_traffic_router
+from faultweaver.identities.router import router as identities_router
 from faultweaver.migrations.runner import upgrade_database
+from faultweaver.redaction import install_log_redaction
 from faultweaver.scope.router import router as scope_router
 
 
@@ -26,6 +28,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         upgrade_database(resolved_settings.database_url)
+        install_log_redaction()
         yield
 
     app = FastAPI(
@@ -53,6 +56,7 @@ def create_app(
     app.include_router(engagements_router)
     app.include_router(scope_router)
     app.include_router(http_traffic_router)
+    app.include_router(identities_router)
 
     return app
 

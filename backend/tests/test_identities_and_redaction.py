@@ -1,0 +1,136 @@
+import logging
+
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from faultweaver.identities.models import Identity
+from faultweaver.redaction import REDACTED, SecretRedactingFilter
+from tests.test_engagements_and_scope import create_engagement
+from tests.test_http_import import authorize
+
+
+def test_identity_crud_is_scoped_and_credentials_are_redacted(app_client: TestClient) -> None:
+    first_engagement = create_engagement(app_client)
+    second_engagement = create_engagement(app_client)
+
+    anonymous = app_client.get(
+        f"/api/engagements/{first_engagement}/identities"
+    ).json()
+    assert len(anonymous) == 1
+    assert anonymous[0]["name"] == "Anonymous"
+    assert anonymous[0]["is_anonymous"] is True
+
+    payload = {
+        "name": "Tenant A operator",
+        "description": "Synthetic local identity",
+        "bearer_token": "synthetic-bearer-secret",
+        "api_key_header": "X-API-Key",
+        "api_key_value": "synthetic-api-secret",
+        "cookies": [{"name": "session", "value": "synthetic-cookie-secret"}],
+        "custom_headers": [
+            {"name": "X-Tenant", "value": "tenant-a"},
+            {"name": "X-Api-Key-Secondary", "value": "synthetic-secondary-secret"},
+        ],
+    }
+    created = app_client.post(
+        f"/api/engagements/{first_engagement}/identities", json=payload
+    )
+
+    assert created.status_code == 201
+    identity = created.json()
+    assert identity["bearer_token"] == REDACTED
+    assert identity["api_key_value"] == REDACTED
+    assert identity["cookies"][0]["value"] == REDACTED
+    assert identity["custom_headers"] == [
+        {"name": "X-Tenant", "value": "tenant-a"},
+        {"name": "X-Api-Key-Secondary", "value": REDACTED},
+    ]
+
+    duplicate_other_engagement = app_client.post(
+        f"/api/engagements/{second_engagement}/identities", json=payload
+    )
+    duplicate_same_engagement = app_client.post(
+        f"/api/engagements/{first_engagement}/identities", json=payload
+    )
+    assert duplicate_other_engagement.status_code == 201
+    assert duplicate_same_engagement.status_code == 409
+
+    updated = app_client.patch(
+        f"/api/engagements/{first_engagement}/identities/{identity['id']}",
+        json={"name": "Tenant A reviewer", "description": "Updated"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "Tenant A reviewer"
+    assert updated.json()["bearer_token"] == REDACTED
+
+    with app_client.app.state.session_factory() as session:
+        stored = session.scalar(select(Identity).where(Identity.id == identity["id"]))
+        assert stored is not None
+        assert stored.bearer_token == "synthetic-bearer-secret"
+        assert stored.api_key_value == "synthetic-api-secret"
+
+    wrong_scope = app_client.get(
+        f"/api/engagements/{second_engagement}/identities/{identity['id']}"
+    )
+    assert wrong_scope.status_code == 404
+    assert (
+        app_client.delete(
+            f"/api/engagements/{first_engagement}/identities/{anonymous[0]['id']}"
+        ).status_code
+        == 409
+    )
+    assert (
+        app_client.delete(
+            f"/api/engagements/{first_engagement}/identities/{identity['id']}"
+        ).status_code
+        == 204
+    )
+
+
+def test_exchange_api_redacts_headers_and_structured_body(app_client: TestClient) -> None:
+    engagement_id = create_engagement(app_client)
+    authorize(app_client, engagement_id)
+    raw = (
+        "POST /api/login HTTP/1.1\r\n"
+        "Host: app.test\r\n"
+        "Authorization: Bearer synthetic-auth-secret\r\n"
+        "Cookie: session=synthetic-cookie-secret\r\n"
+        "X-API-Key: synthetic-api-secret\r\n"
+        "Content-Type: application/json\r\n\r\n"
+        '{"username":"synthetic-user","password":"synthetic-password","nested":'
+        '{"access_token":"synthetic-token"}}'
+    )
+
+    imported = app_client.post(
+        f"/api/engagements/{engagement_id}/traffic/raw",
+        json={"base_url": "http://app.test", "raw": raw},
+    )
+
+    assert imported.status_code == 201
+    public = imported.json()
+    header_values = {item["name"].lower(): item["value"] for item in public["request_headers"]}
+    assert header_values["authorization"] == REDACTED
+    assert header_values["cookie"] == REDACTED
+    assert header_values["x-api-key"] == REDACTED
+    assert public["request_body"] == (
+        '{"username":"synthetic-user","password":"[REDACTED]",'
+        '"nested":{"access_token":"[REDACTED]"}}'
+    )
+    detail = app_client.get(f"/api/requests/{public['id']}").json()
+    assert "synthetic-auth-secret" not in detail["raw_request"]
+    assert "synthetic-password" not in detail["raw_request"]
+
+
+def test_logging_filter_redacts_structured_secrets() -> None:
+    record = logging.LogRecord(
+        "faultweaver.test",
+        logging.INFO,
+        __file__,
+        1,
+        {"password": "synthetic-password", "safe": "visible"},
+        (),
+        None,
+    )
+
+    assert SecretRedactingFilter().filter(record) is True
+    assert record.msg == {"password": REDACTED, "safe": "visible"}
