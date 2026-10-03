@@ -2,6 +2,7 @@
   import { api } from '../api';
   import {
     importFormatOptions,
+    importWarningLabel,
     importTrafficDocument,
     previewTrafficDocument
   } from '../traffic-import';
@@ -138,7 +139,7 @@ paths:
       <div class="import-stats">
         <span><small>PROCESSED</small><strong>{result.batch.total_records}</strong></span><span><small>IMPORTED</small><strong>{result.batch.imported_count}</strong></span><span><small>RESPONSES</small><strong>{result.batch.response_count}</strong></span><span><small>SKIPPED</small><strong>{result.batch.skipped_count}</strong></span><span><small>NEW ENDPOINTS</small><strong>{result.batch.new_endpoint_count}</strong></span><span><small>KNOWN ENDPOINTS</small><strong>{result.batch.known_endpoint_count}</strong></span>
       </div>
-      {#if result.batch.warnings.length}<details class="warning-list" open><summary>{result.batch.warning_count} warnings</summary>{#each result.batch.warnings as warning}<p>{warning}</p>{/each}</details>{/if}
+      {#if result.batch.warnings.length}<details class="warning-list" open><summary>{importWarningLabel(result.batch.warnings)}</summary>{#each result.batch.warnings as warning}<p>{warning}</p>{/each}</details>{/if}
       <p class="form-note">Imported records are stored locally. No request was sent by this import.</p>
       <div class="dialog-actions"><button class="button primary" type="button" onclick={onclose}>Done</button></div>
     </section>
@@ -163,7 +164,7 @@ paths:
           <div class="import-stats"><span><small>PROCESSED</small><strong>{preview.total_records}</strong></span><span><small>ACCEPTED</small><strong>{preview.accepted_count}</strong></span><span><small>RESPONSES</small><strong>{preview.response_count}</strong></span><span><small>SKIPPED</small><strong>{preview.skipped_count}</strong></span><span><small>WARNINGS</small><strong>{preview.warnings.length}</strong></span></div>
           {#if preview.requests.length}<div class="preview-records">{#each preview.requests as item}<article class:blocked={!item.scope_allowed}><code>{item.method}</code><strong>{item.url}</strong><span>{item.header_count} headers · {item.cookie_count} cookies · {item.body_bytes} body bytes</span><em>{item.scope_allowed ? 'IN SCOPE' : 'OUT OF SCOPE'}</em></article>{/each}</div>{/if}
           {#if preview.endpoints.length}<div class="preview-records">{#each preview.endpoints as item}<article><code>{item.method}</code><strong>{item.path_template}</strong><span>{item.server_url ?? 'No declared server'}{item.operation_id ? ` · ${item.operation_id}` : ''}</span><em>{item.auth.join(', ') || 'AUTH NOT DECLARED'}</em></article>{/each}</div>{/if}
-          {#if preview.warnings.length}<details class="warning-list"><summary>{preview.warnings.length} warnings</summary>{#each preview.warnings as warning}<p>{warning}</p>{/each}</details>{/if}
+          {#if preview.warnings.length}<details class="warning-list"><summary>{importWarningLabel(preview.warnings)}</summary>{#each preview.warnings as warning}<p>{warning}</p>{/each}</details>{/if}
         </section>
       {/if}
       {#if error}<p class="form-error" role="alert">{error}</p>{/if}

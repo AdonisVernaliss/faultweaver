@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -6,6 +7,8 @@ from faultweaver.imports.canonical import ParserLimits
 from faultweaver.imports.curl import CurlParseError, parse_curl
 from faultweaver.imports.har import HarParseError, parse_har
 from faultweaver.imports.openapi import OpenApiParseError, parse_openapi
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture
@@ -19,36 +22,7 @@ def limits() -> ParserLimits:
 
 
 def test_har_parses_headers_cookies_bodies_response_and_timing(limits: ParserLimits) -> None:
-    content = json.dumps(
-        {
-            "log": {
-                "version": "1.2",
-                "entries": [
-                    {
-                        "startedDateTime": "2026-01-02T03:04:05Z",
-                        "time": 12.5,
-                        "request": {
-                            "method": "POST",
-                            "url": "https://example.test/api/orders/17?full=true",
-                            "headers": [
-                                {"name": "X-Trace", "value": "one"},
-                                {"name": "X-Trace", "value": "two"},
-                            ],
-                            "cookies": [{"name": "sid", "value": "synthetic"}],
-                            "postData": {"mimeType": "application/json", "text": '{"ok":true}'},
-                        },
-                        "response": {
-                            "status": 200,
-                            "headers": [{"name": "Content-Type", "value": "application/json"}],
-                            "cookies": [{"name": "response", "value": "synthetic"}],
-                            "content": {"text": "eyJvayI6dHJ1ZX0=", "encoding": "base64"},
-                            "redirectURL": "https://example.test/api/orders/18",
-                        },
-                    }
-                ],
-            }
-        }
-    )
+    content = (FIXTURES / "sample.har").read_text()
 
     result = parse_har(content, limits)
     record = result.records[0]
@@ -166,35 +140,7 @@ def test_curl_get_body_variants_and_shell_syntax_are_safe(limits: ParserLimits) 
 
 
 def test_openapi_json_yaml_refs_security_and_no_remote_fetch(limits: ParserLimits) -> None:
-    document = {
-        "openapi": "3.0.3",
-        "servers": [{"url": "https://api.example.test/v1"}],
-        "paths": {
-            "/users/{id}": {
-                "parameters": [{"$ref": "#/components/parameters/UserId"}],
-                "get": {
-                    "operationId": "getUser",
-                    "security": [{"bearerAuth": []}],
-                    "responses": {"200": {"$ref": "https://schemas.example.test/user.json"}},
-                },
-            }
-        },
-        "components": {
-            "parameters": {
-                "UserId": {
-                    "name": "id",
-                    "in": "path",
-                    "required": True,
-                    "schema": {"type": "string"},
-                }
-            },
-            "securitySchemes": {
-                "bearerAuth": {"type": "http", "scheme": "bearer"},
-                "apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
-            },
-        },
-    }
-    result = parse_openapi(json.dumps(document), limits)
+    result = parse_openapi((FIXTURES / "sample-openapi.json").read_text(), limits)
     endpoint = result.endpoints[0]
 
     assert endpoint.server_url == "https://api.example.test/v1"
@@ -203,19 +149,7 @@ def test_openapi_json_yaml_refs_security_and_no_remote_fetch(limits: ParserLimit
     assert endpoint.details["security"][0]["kind"] == "Bearer"
     assert any("external reference" in warning for warning in result.warnings)
 
-    yaml_result = parse_openapi(
-        """openapi: 3.1.0
-servers:
-  - url: https://api.example.test
-paths:
-  /health:
-    get:
-      responses:
-        '200':
-          description: healthy
-""",
-        limits,
-    )
+    yaml_result = parse_openapi((FIXTURES / "sample-openapi.yaml").read_text(), limits)
     assert yaml_result.endpoints[0].path_template == "/health"
 
 

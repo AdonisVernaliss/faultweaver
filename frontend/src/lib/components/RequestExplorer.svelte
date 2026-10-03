@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { formatDuration, requestTarget, sourceLabel } from '../format';
+  import { filterRequests, formatDuration, requestTarget, sourceLabel } from '../format';
   import type { Exchange, ExchangeDetail, Identity } from '../types';
 
   let {
@@ -31,19 +31,7 @@
   let detailTab = $state<'request' | 'response'>('request');
   let representation = $state<'raw' | 'headers'>('raw');
 
-  let filtered = $derived(
-    requests.filter((request) => {
-      const needle = filter.trim().toLowerCase();
-      return (
-        (!sourceFilter || request.source === sourceFilter) &&
-        (!needle ||
-          request.method.toLowerCase().includes(needle) ||
-          request.host.toLowerCase().includes(needle) ||
-          requestTarget(request.path, request.query).toLowerCase().includes(needle) ||
-          String(request.response_status ?? '').includes(needle))
-      );
-    })
-  );
+  let filtered = $derived(filterRequests(requests, filter, sourceFilter));
 
   function rawResponse(exchange: ExchangeDetail): string {
     if (exchange.response_status === null) return 'No response has been captured yet.';

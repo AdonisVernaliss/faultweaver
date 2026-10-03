@@ -28,10 +28,7 @@ def sample_har(*, include_invalid: bool = False) -> str:
             "time": 18.5,
             "request": {
                 "method": "GET",
-                "url": (
-                    "https://api.example.test/api/users/17"
-                    "?full=true&token=synthetic-query-secret"
-                ),
+                "url": "https://api.example.test/api/users/17?full=true&token=synthetic-query-secret",
                 "headers": [
                     {"name": "Authorization", "value": "Bearer synthetic-har-secret"},
                     {"name": "X-Trace", "value": "one"},

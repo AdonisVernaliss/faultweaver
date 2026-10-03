@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   importFormatOptions,
+  importWarningLabel,
   importTrafficDocument,
   previewTrafficDocument
 } from './traffic-import';
@@ -18,6 +19,8 @@ describe('real traffic import client', () => {
       'curl',
       'openapi'
     ]);
+    expect(importWarningLabel(['Synthetic warning'])).toBe('1 warning');
+    expect(importWarningLabel(['First', 'Second'])).toBe('2 warnings');
   });
 
   it.each([
@@ -31,11 +34,11 @@ describe('real traffic import client', () => {
           import_format: format,
           total_records: 1,
           accepted_count: 1,
-          response_count: 0,
+          response_count: format === 'har' ? 1 : 0,
           skipped_count: 0,
           warnings: ['Synthetic warning'],
-          requests: [],
-          endpoints: []
+          requests: format === 'openapi' ? [] : [{ method: format === 'curl' ? 'POST' : 'GET' }],
+          endpoints: format === 'openapi' ? [{ path_template: '/resource/{id}' }] : []
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
@@ -50,6 +53,9 @@ describe('real traffic import client', () => {
     );
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ content, filename });
     expect(preview.warnings).toEqual(['Synthetic warning']);
+    if (format === 'har') expect(preview.response_count).toBe(1);
+    if (format === 'curl') expect(preview.requests[0].method).toBe('POST');
+    if (format === 'openapi') expect(preview.endpoints[0].path_template).toBe('/resource/{id}');
   });
 
   it('imports only after preview through the persistence endpoint', async () => {

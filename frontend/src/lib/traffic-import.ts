@@ -8,6 +8,10 @@ export const importFormatOptions = [
   { value: 'openapi', label: 'OpenAPI' }
 ] as const satisfies ReadonlyArray<{ value: ImportFormat; label: string }>;
 
+export function importWarningLabel(warnings: string[]): string {
+  return `${warnings.length} ${warnings.length === 1 ? 'warning' : 'warnings'}`;
+}
+
 type DocumentFormat = Exclude<ImportFormat, 'raw'>;
 
 export function previewTrafficDocument(

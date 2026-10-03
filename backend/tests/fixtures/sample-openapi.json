@@ -1,0 +1,30 @@
+{
+  "openapi": "3.0.3",
+  "servers": [{ "url": "https://api.example.test/v1" }],
+  "paths": {
+    "/users/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/UserId" }],
+      "get": {
+        "operationId": "getUser",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "$ref": "https://schemas.example.test/user.json" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "UserId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" },
+      "apiKey": { "type": "apiKey", "in": "header", "name": "X-API-Key" }
+    }
+  }
+}
