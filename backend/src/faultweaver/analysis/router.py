@@ -24,7 +24,7 @@ from faultweaver.analysis.schemas import (
 )
 from faultweaver.database import get_session
 from faultweaver.engagements.router import get_engagement_or_404
-from faultweaver.findings.models import Finding, OperatorNote
+from faultweaver.findings.models import Evidence, Finding, OperatorNote
 from faultweaver.findings.router import public_finding
 from faultweaver.findings.schemas import FindingPromotion, FindingResponse
 from faultweaver.findings.service import add_history, allocate_display_id
@@ -75,7 +75,7 @@ def public_candidate(session: Session, candidate: Candidate) -> CandidateRespons
         archived_at=candidate.archived_at,
         finding_id=finding.id if finding else None,
         reasoning=candidate.reasoning,
-        notes=candidate.notes,
+        notes=redact_body(candidate.notes) or "",
         target={
             "method": original.method if original else "",
             "host": original.host if original else "",
@@ -210,7 +210,7 @@ def list_candidates(engagement_id: str, session: SessionDep) -> list[CandidateRe
     get_engagement_or_404(session, engagement_id)
     candidates = session.scalars(
         select(Candidate)
-        .where(Candidate.engagement_id == engagement_id)
+        .where(Candidate.engagement_id == engagement_id, Candidate.archived_at.is_(None))
         .order_by(Candidate.created_at.desc())
     )
     return [public_candidate(session, candidate) for candidate in candidates]
@@ -236,7 +236,10 @@ def update_candidate(
     session: SessionDep,
 ) -> CandidateResponse:
     candidate = _candidate_or_404(session, engagement_id, candidate_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "notes" in updates:
+        updates["notes"] = redact_body(updates["notes"]) or ""
+    for field, value in updates.items():
         setattr(candidate, field, value)
     session.commit()
     session.refresh(candidate)
@@ -319,6 +322,15 @@ def promote_candidate(
     )
     session.add(finding)
     session.flush()
+    for evidence in session.scalars(
+        select(Evidence).where(
+            Evidence.engagement_id == engagement_id,
+            Evidence.finding_id.is_(None),
+            (Evidence.source_candidate_id == candidate.id)
+            | (Evidence.source_comparison_id == candidate.comparison_id),
+        )
+    ):
+        evidence.finding_id = finding.id
     candidate.review_decision = "Confirmed"
     candidate.reviewed_at = datetime.now(UTC)
     candidate.status = "promoted"

@@ -6,9 +6,12 @@
   import CandidatePanel from '../lib/components/CandidatePanel.svelte';
   import ComparisonDialog from '../lib/components/ComparisonDialog.svelte';
   import CreateEngagementDialog from '../lib/components/CreateEngagementDialog.svelte';
+  import EvidencePanel from '../lib/components/EvidencePanel.svelte';
+  import FindingPanel from '../lib/components/FindingPanel.svelte';
   import IdentityPanel from '../lib/components/IdentityPanel.svelte';
   import ImportDialog from '../lib/components/ImportDialog.svelte';
   import RequestExplorer from '../lib/components/RequestExplorer.svelte';
+  import RetestPanel from '../lib/components/RetestPanel.svelte';
   import ScopeDialog from '../lib/components/ScopeDialog.svelte';
   import Sidebar from '../lib/components/Sidebar.svelte';
   import type {
@@ -17,10 +20,13 @@
     AuthorizationMatrix as Matrix,
     Candidate,
     Comparison,
+    Evidence,
     Exchange,
     ExchangeDetail,
     ExchangeList,
     Identity,
+    Finding,
+    Retest,
     ScopeRule
   } from '../lib/types';
 
@@ -31,8 +37,12 @@
   let identities = $state<Identity[]>([]);
   let matrix = $state<Matrix>({ identities: [], rows: [] });
   let candidates = $state<Candidate[]>([]);
+  let findings = $state<Finding[]>([]);
+  let evidence = $state<Evidence[]>([]);
+  let retests = $state<Retest[]>([]);
+  let focusedFindingId = $state('');
   let selected = $state<ExchangeDetail | null>(null);
-  let activeView = $state<'requests' | 'identities' | 'matrix' | 'candidates'>('requests');
+  let activeView = $state<'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests'>('requests');
   let loading = $state(true);
   let loadingDetail = $state(false);
   let replaying = $state(false);
@@ -70,13 +80,16 @@
     error = '';
     selected = null;
     try {
-      const [detail, scopeRules, traffic, identityContexts, authMatrix, candidateItems] = await Promise.all([
+      const [detail, scopeRules, traffic, identityContexts, authMatrix, candidateItems, findingItems, evidenceItems, retestItems] = await Promise.all([
         api<EngagementDetail>(`engagements/${id}`),
         api<ScopeRule[]>(`engagements/${id}/scopes`),
         api<ExchangeList>(`engagements/${id}/requests`),
         api<Identity[]>(`engagements/${id}/identities`),
         api<Matrix>(`engagements/${id}/authorization-matrix`),
-        api<Candidate[]>(`engagements/${id}/candidates`)
+        api<Candidate[]>(`engagements/${id}/candidates`),
+        api<Finding[]>(`engagements/${id}/findings`),
+        api<Evidence[]>(`engagements/${id}/evidence`),
+        api<Retest[]>(`engagements/${id}/retests`)
       ]);
       engagement = detail;
       scopes = scopeRules;
@@ -84,6 +97,9 @@
       identities = identityContexts;
       matrix = authMatrix;
       candidates = candidateItems;
+      findings = findingItems;
+      evidence = evidenceItems;
+      retests = retestItems;
       localStorage.setItem('faultweaver.engagement', id);
       if (requests.length) await selectRequest(requests[0].id);
     } catch (cause) {
@@ -108,6 +124,15 @@
     [matrix, candidates] = await Promise.all([
       api<Matrix>(`engagements/${engagement.id}/authorization-matrix`),
       api<Candidate[]>(`engagements/${engagement.id}/candidates`)
+    ]);
+  }
+
+  async function refreshLifecycle() {
+    if (!engagement) return;
+    [findings, evidence, retests] = await Promise.all([
+      api<Finding[]>(`engagements/${engagement.id}/findings`),
+      api<Evidence[]>(`engagements/${engagement.id}/evidence`),
+      api<Retest[]>(`engagements/${engagement.id}/retests`)
     ]);
   }
 
@@ -144,6 +169,41 @@
   function compared(_: Comparison) {
     void Promise.all([refreshRequests(), refreshAnalysis()]);
     showNotice('Comparison and replay evidence saved locally');
+  }
+
+  async function saveRequestEvidence() {
+    if (!engagement || !selected) return;
+    try {
+      const item = await api<Evidence>(`engagements/${engagement.id}/evidence`, {
+        method: 'POST',
+        body: JSON.stringify({
+          evidence_type: selected.source === 'replay' ? 'Replay' : 'HTTP Request/Response',
+          title: `${selected.method} ${selected.path}`,
+          source_exchange_id: selected.id
+        })
+      });
+      savedEvidence(item);
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : 'Could not save evidence';
+    }
+  }
+
+  function savedEvidence(item: Evidence) {
+    evidence = [item, ...evidence.filter((existing) => existing.id !== item.id)];
+    showNotice(`${item.display_id} captured as immutable evidence`);
+  }
+
+  function promotedFinding(item: Finding) {
+    focusedFindingId = item.id;
+    findings = [item, ...findings.filter((existing) => existing.id !== item.id)];
+    activeView = 'findings';
+    void refreshLifecycle();
+    showNotice(`${item.display_id} created from reviewed candidate`);
+  }
+
+  function openFinding(id: string) {
+    focusedFindingId = id;
+    activeView = 'findings';
   }
 
   function openEvidence(id: string) {
@@ -203,6 +263,9 @@
     requestCount={requests.length}
     identityCount={identities.length}
     candidateCount={candidates.length}
+    findingCount={findings.length}
+    evidenceCount={evidence.length}
+    retestCount={retests.length}
     {activeView}
     onview={(view) => (activeView = view)}
     oncreate={() => (createDialog = true)}
@@ -275,14 +338,21 @@
           onselect={selectRequest}
           onreplay={replaySelected}
           oncompare={() => (comparisonDialog = true)}
+          onsaveevidence={saveRequestEvidence}
           onimport={openImport}
         />
       {:else if activeView === 'identities'}
         <IdentityPanel engagementId={engagement.id} {identities} onchanged={refreshIdentities} />
       {:else if activeView === 'matrix'}
         <AuthorizationMatrix {matrix} onopen={openEvidence} />
+      {:else if activeView === 'candidates'}
+        <CandidatePanel engagementId={engagement.id} {candidates} onchanged={refreshAnalysis} onpromoted={promotedFinding} onevidence={savedEvidence} />
+      {:else if activeView === 'findings'}
+        <FindingPanel engagementId={engagement.id} {findings} {evidence} focusId={focusedFindingId} onchanged={refreshLifecycle} onevidence={savedEvidence} />
+      {:else if activeView === 'evidence'}
+        <EvidencePanel {evidence} {findings} />
       {:else}
-        <CandidatePanel engagementId={engagement.id} {candidates} onchanged={refreshAnalysis} />
+        <RetestPanel {retests} {findings} onopen={openFinding} />
       {/if}
     {:else}
       <section class="first-run">
@@ -326,5 +396,6 @@
     {identities}
     onclose={() => (comparisonDialog = false)}
     oncompared={compared}
+    onevidence={savedEvidence}
   />
 {/if}

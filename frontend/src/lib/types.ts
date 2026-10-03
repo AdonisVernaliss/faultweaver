@@ -109,11 +109,114 @@ export interface Candidate {
   title: string;
   category: string;
   confidence: string;
-  status: 'candidate' | 'confirmed' | 'rejected';
+  status: 'candidate' | 'reviewed' | 'promoted' | 'confirmed' | 'rejected';
+  review_decision: 'Confirmed' | 'False Positive' | 'Informational' | 'Accepted' | null;
+  reviewed_at: string | null;
+  archived_at: string | null;
+  finding_id: string | null;
   reasoning: string[];
   notes: string;
+  target: { method: string; host: string; path: string };
+  original: Exchange | null;
+  supporting_replays: Exchange[];
+  comparison_result: Record<string, unknown>;
+  identities: { id: string; name: string }[];
+  response_statuses: { exchange_id: string; identity_id: string | null; status: number | null }[];
+  operator_notes: OperatorNote[];
   created_at: string;
   updated_at: string;
+}
+
+export interface OperatorNote {
+  id: string;
+  author_label: string;
+  body: string;
+  created_at: string;
+}
+
+export type Severity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Informational';
+export type FindingStatus =
+  | 'Open'
+  | 'In Remediation'
+  | 'Ready for Retest'
+  | 'Fixed'
+  | 'Accepted Risk'
+  | 'Closed';
+export type RetestStatus = 'Still Vulnerable' | 'Partially Fixed' | 'Fixed' | 'Unable to Retest';
+
+export interface FindingHistory {
+  id: string;
+  event_type: string;
+  summary: string;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface Retest {
+  id: string;
+  engagement_id: string;
+  finding_id: string;
+  finding_display_id: string;
+  display_id: string;
+  status: RetestStatus;
+  tested_at: string;
+  operator_notes: string;
+  evidence_ids: string[];
+  created_at: string;
+  updated_at: string;
+  notes: OperatorNote[];
+}
+
+export interface Finding {
+  id: string;
+  engagement_id: string;
+  display_id: string;
+  candidate_id: string | null;
+  title: string;
+  category: string;
+  severity: Severity;
+  status: FindingStatus;
+  affected_asset: string;
+  affected_endpoints: string[];
+  description: string;
+  impact: string;
+  reproduction_steps: string[];
+  remediation: string;
+  references: string[];
+  supporting_original_exchange_id: string | null;
+  supporting_comparison_id: string | null;
+  confirmed_at: string;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  latest_retest: { display_id: string; status: RetestStatus; tested_at: string } | null;
+  evidence_ids: string[];
+  notes: OperatorNote[];
+  retests: Retest[];
+  history: FindingHistory[];
+}
+
+export type EvidenceType =
+  | 'HTTP Request/Response'
+  | 'Replay'
+  | 'Response Comparison'
+  | 'Operator Note'
+  | 'Text Excerpt';
+
+export interface Evidence {
+  id: string;
+  engagement_id: string;
+  display_id: string;
+  evidence_type: EvidenceType;
+  title: string;
+  snapshot: Record<string, unknown>;
+  source_exchange_id: string | null;
+  source_comparison_id: string | null;
+  source_candidate_id: string | null;
+  finding_id: string | null;
+  author_label: string;
+  captured_at: string;
+  notes: OperatorNote[];
 }
 
 export interface Comparison {

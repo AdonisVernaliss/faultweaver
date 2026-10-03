@@ -11,6 +11,7 @@
     onselect,
     onreplay,
     oncompare,
+    onsaveevidence,
     onimport
   }: {
     requests: Exchange[];
@@ -21,6 +22,7 @@
     onselect: (id: string) => void;
     onreplay: () => void;
     oncompare: () => void;
+    onsaveevidence: () => void;
     onimport: () => void;
   } = $props();
 
@@ -115,6 +117,7 @@
             <div><strong>{requestTarget(selected.path, selected.query)}</strong><small>{selected.url}</small></div>
           </div>
           <div class="detail-actions">
+            <button class="button ghost" type="button" onclick={onsaveevidence}>▣ Save as evidence</button>
             <button class="button ghost" type="button" onclick={oncompare} disabled={identities.length < 2}>⇄ Compare identities</button>
             <button class="button replay" type="button" onclick={onreplay} disabled={replaying}>{replaying ? 'Replaying…' : '▶ Replay'}</button>
           </div>

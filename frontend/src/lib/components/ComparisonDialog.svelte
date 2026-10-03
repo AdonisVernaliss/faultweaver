@@ -1,19 +1,21 @@
 <script lang="ts">
   import { comparisonPayload, comparisonSummary, rawResponse } from '../analysis';
   import { api } from '../api';
-  import type { Comparison, ExchangeDetail, Identity } from '../types';
+  import type { Comparison, Evidence, ExchangeDetail, Identity } from '../types';
   import DialogShell from './DialogShell.svelte';
 
   let {
     request,
     identities,
     onclose,
-    oncompared
+    oncompared,
+    onevidence
   }: {
     request: ExchangeDetail;
     identities: Identity[];
     onclose: () => void;
     oncompared: (comparison: Comparison) => void;
+    onevidence: (evidence: Evidence) => void;
   } = $props();
 
   let identityA = $state('');
@@ -22,6 +24,7 @@
   let view = $state<'raw' | 'normalized' | 'diff'>('diff');
   let busy = $state(false);
   let error = $state('');
+  let evidenceSaved = $state(false);
 
   $effect(() => {
     if (!identityA && identities[0]) identityA = identities[0].id;
@@ -44,6 +47,29 @@
       oncompared(comparison);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Comparison failed';
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function saveEvidence() {
+    if (!comparison) return;
+    busy = true;
+    error = '';
+    try {
+      const evidence = await api<Evidence>(`engagements/${comparison.engagement_id}/evidence`, {
+        method: 'POST',
+        body: JSON.stringify({
+          evidence_type: 'Response Comparison',
+          title: `${request.method} ${request.path} identity comparison`,
+          source_comparison_id: comparison.id,
+          source_candidate_id: comparison.candidate?.id ?? null
+        })
+      });
+      evidenceSaved = true;
+      onevidence(evidence);
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : 'Could not save evidence';
     } finally {
       busy = false;
     }
@@ -92,7 +118,8 @@
           <section><header><span>B</span><strong>{identityName(comparison.identity_b_id)}</strong><em>HTTP {comparison.replay_b.response_status}</em></header><pre>{view === 'raw' ? rawResponse(comparison.replay_b) : JSON.stringify(comparison.result.normalized_b, null, 2)}</pre></section>
         </div>
       {/if}
-      <div class="dialog-actions"><button class="button primary" type="button" onclick={onclose}>Done</button></div>
+      {#if error}<p class="form-error" role="alert">{error}</p>{/if}
+      <div class="dialog-actions"><button class="button secondary" type="button" onclick={saveEvidence} disabled={busy || evidenceSaved}>{evidenceSaved ? 'Saved as evidence' : 'Save comparison as evidence'}</button><button class="button primary" type="button" onclick={onclose}>Done</button></div>
     </div>
   {/if}
 </DialogShell>

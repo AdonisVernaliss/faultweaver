@@ -19,12 +19,16 @@ Faultweaver is pre-release software. The current vertical slice includes:
 - replay a request with explicit auth provenance and per-hop redirect scope checks;
 - compare the same request across two identities with normalized text and structured JSON diffs;
 - inspect saved evidence in an authorization matrix;
-- review conservative authorization-inconsistency candidates without automatic confirmation;
+- review conservative authorization-inconsistency candidates with explicit operator classifications;
+- promote confirmed candidates into editable findings with stable engagement-scoped `FW-###` IDs;
+- capture immutable redacted request, replay, comparison, note, and text evidence as `EV-###`;
+- record multiple evidence-backed retests as `RT-###` and surface the latest result;
+- track append-only severity, status, promotion, closure, and retest lifecycle events;
 - redact common secrets in API and workspace views while retaining replay material locally;
-- persist imported requests, replay responses, comparisons, candidates, and engagement state in SQLite;
+- persist requests, comparisons, candidates, findings, evidence, retests, and history in SQLite;
 - upgrade fresh or existing pre-migration databases through packaged Alembic migrations.
 
-Confirmed findings, evidence packaging, attack chains, reports, crawling, credential encryption, and the deterministic demo target remain later milestones.
+Attack chains, reporting/export, crawling, credential encryption, and the deterministic demo target remain later milestones.
 
 ## Architecture
 
@@ -76,8 +80,10 @@ The workspace is available at `http://localhost:5173`, the API at `http://localh
 5. Add at least two identity contexts.
 6. Choose **Compare identities** from the original request and save the two replays plus response diff.
 7. Inspect observed statuses in **Auth matrix** and review any conservative **Candidates**.
+8. Classify the candidate or explicitly promote it, then author the finding prose.
+9. Preserve original and retest evidence, move the finding to **Ready for Retest**, and record each verification attempt.
 
-A replay or candidate is traffic evidence, not a confirmed vulnerability. Candidate confirmation is always a manual operator decision.
+A replay or candidate is not a confirmed vulnerability. Promotion is always an explicit operator decision, and automated candidate reasoning is never copied into final finding prose.
 
 See [Architecture](docs/architecture.md) for the current boundaries and design decisions.
 

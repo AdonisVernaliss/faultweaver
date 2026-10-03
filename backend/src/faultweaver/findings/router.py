@@ -185,7 +185,7 @@ def list_findings(
         "id": Finding.sequence_number.asc(),
     }.get(sort, Finding.updated_at.desc())
     findings = list(session.scalars(select(Finding).where(*conditions).order_by(order)))
-    response = [public_finding(session, item, detail=False) for item in findings]
+    response = [public_finding(session, item) for item in findings]
     if retest == "not_retested":
         response = [item for item in response if item.latest_retest is None]
     elif retest:
@@ -212,6 +212,10 @@ def update_finding(
     updates = payload.model_dump(exclude_unset=True)
     old_severity, old_status = finding.severity, finding.status
     for key, value in updates.items():
+        if isinstance(value, str):
+            value = redact_body(value) or ""
+        elif isinstance(value, list):
+            value = [redact_body(item) or "" for item in value]
         setattr(finding, key, value)
     if "severity" in updates and finding.severity != old_severity:
         add_history(
@@ -266,7 +270,7 @@ def create_evidence(
         display_id=display_id,
         sequence_number=number,
         evidence_type=payload.evidence_type,
-        title=payload.title,
+        title=redact_body(payload.title) or "Evidence",
         snapshot=snapshot,
         source_exchange_id=payload.source_exchange_id,
         source_comparison_id=payload.source_comparison_id,
