@@ -12,6 +12,7 @@ Browser
             -> scope-gated replay client
             -> response normalization, structured diff, and candidate analysis
             -> finding, immutable evidence, operator note, and retest lifecycle
+            -> ordered, operator-authored attack chain composition
             -> SQLite
 ```
 
@@ -23,18 +24,27 @@ Browser
 - `identities` owns local authentication contexts and applies them only within their engagement.
 - `analysis` normalizes bounded responses, stores explainable comparisons, derives the authorization matrix, and emits conservative candidates.
 - `findings` owns explicit candidate promotion, stable display IDs, report prose, immutable evidence snapshots, operator notes, retest attempts, and append-only lifecycle events.
+- `attack_chains` owns engagement-scoped `AC-###` identifiers, narrative impact, ordered steps, evidence references, explicit validation, archival, and append-only lifecycle events.
 
 Every replay URL is checked in the networking layer before a request is sent. Redirects are handled one hop at a time and checked before following. Sensitive authorization and cookie headers are removed if a redirect changes origin. Response capture is bounded to one megabyte by default.
 
-Packaged Alembic migrations run on startup. The baseline revision can adopt the original pre-migration schema after validating every expected table and column; revisions `0002` and `0003` evolve identity/analysis and finding-lifecycle data without dropping stored engagements or traffic.
+Packaged Alembic migrations run on startup. The baseline revision can adopt the original pre-migration schema after validating every expected table and column; revisions `0002`, `0003`, and `0004` evolve identity/analysis, finding-lifecycle, and Attack Chain data without dropping stored engagements or traffic.
 
 ## Frontend boundaries
 
-The SvelteKit application is a client-rendered local workspace. Its server route proxies `/api` to the configured FastAPI service so local and Compose deployments have one browser origin. The candidate review, finding report, evidence library, and retest ledger are distinct views but keep promotion and verification in one continuous workflow.
+The SvelteKit application is a client-rendered local workspace. Its server route proxies `/api` to the configured FastAPI service so local and Compose deployments have one browser origin. The candidate review, finding report, evidence library, retest ledger, and Attack Chain builder are distinct views but keep promotion, composition, and verification in one continuous workflow.
+
+## Attack Chain model
+
+An Attack Chain is a deliberate operator-authored explanation of how confirmed issues combine into a larger outcome. It is not an automatically inferred vulnerability graph. A **Finding** step references an active Finding and surfaces its current identity, severity, and status; an **Intermediate** step records a meaningful transition that the operator can explain even when it is not itself a Finding. Integer positions define a deterministic order and are normalized after insertion, removal, or reordering.
+
+Chains and individual steps may reference existing immutable Evidence records. These relationships do not copy or mutate evidence snapshots. A Finding can appear in more than one chain, and Finding detail exposes backlinks to every related chain.
+
+Validation is explicit. A chain must have a title, at least two meaningful steps, contiguous unique positions, and valid active Finding references before it can become `Validated`. Editing its narrative or structure returns it to `Draft` so the revised path must be reviewed again. Archival is non-destructive: archived chains remain readable with their ordering, evidence links, and history, but can no longer be edited.
 
 ## Persistence
 
-SQLite is the source of truth. The default local database is `data/faultweaver.db`; Compose mounts `/data/faultweaver.db` from a named volume. Imported requests and replays are separate records linked through `parent_exchange_id`. Comparisons link an immutable original to both replay records and their identity contexts; candidates remain linked after promotion. Per-engagement counters allocate stable `FW-###`, `EV-###`, and `RT-###` display IDs.
+SQLite is the source of truth. The default local database is `data/faultweaver.db`; Compose mounts `/data/faultweaver.db` from a named volume. Imported requests and replays are separate records linked through `parent_exchange_id`. Comparisons link an immutable original to both replay records and their identity contexts; candidates remain linked after promotion. Per-engagement counters allocate stable `FW-###`, `EV-###`, `RT-###`, and `AC-###` display IDs.
 
 Evidence stores a redacted point-in-time JSON snapshot rather than a live rendering of its source. Source edits, archival, or deletion therefore cannot change the captured evidence. Finding and retest relations distinguish original evidence from evidence selected for a particular retest. Identity and lifecycle deletion actions archive or restrict records instead of casually destroying historical context.
 

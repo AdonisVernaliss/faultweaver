@@ -24,11 +24,13 @@ Faultweaver is pre-release software. The current vertical slice includes:
 - capture immutable redacted request, replay, comparison, note, and text evidence as `EV-###`;
 - record multiple evidence-backed retests as `RT-###` and surface the latest result;
 - track append-only severity, status, promotion, closure, and retest lifecycle events;
+- compose confirmed findings and operator-authored intermediate steps into ordered Attack Chains with stable engagement-scoped `AC-###` IDs;
+- link existing immutable evidence at chain or step level, validate complete paths explicitly, and preserve archived chains and lifecycle history;
 - redact common secrets in API and workspace views while retaining replay material locally;
-- persist requests, comparisons, candidates, findings, evidence, retests, and history in SQLite;
+- persist requests, comparisons, candidates, findings, evidence, retests, Attack Chains, and history in SQLite;
 - upgrade fresh or existing pre-migration databases through packaged Alembic migrations.
 
-Attack chains, reporting/export, crawling, credential encryption, and the deterministic demo target remain later milestones.
+Reporting/export, crawling, credential encryption, and the deterministic demo target remain later milestones.
 
 ## Architecture
 
@@ -82,8 +84,9 @@ The workspace is available at `http://localhost:5173`, the API at `http://localh
 7. Inspect observed statuses in **Auth matrix** and review any conservative **Candidates**.
 8. Classify the candidate or explicitly promote it, then author the finding prose.
 9. Preserve original and retest evidence, move the finding to **Ready for Retest**, and record each verification attempt.
+10. Open **Attack Chains**, create a path, add confirmed findings and intermediate steps in an explicit order, attach existing evidence, write the resulting impact, and validate the chain.
 
-A replay or candidate is not a confirmed vulnerability. Promotion is always an explicit operator decision, and automated candidate reasoning is never copied into final finding prose.
+A replay or candidate is not a confirmed vulnerability. Promotion is always an explicit operator decision, and automated candidate reasoning is never copied into final finding prose. Attack Chains are also operator-authored: Faultweaver does not infer or auto-generate attack paths.
 
 See [Architecture](docs/architecture.md) for the current boundaries and design decisions.
 
