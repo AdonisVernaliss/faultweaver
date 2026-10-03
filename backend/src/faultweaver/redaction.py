@@ -22,6 +22,11 @@ _FORM_SECRET = re.compile(r"(?i)(\b(?:api[_-]?key|password|secret|token)=)[^&\s]
 _HEADER_SECRET = re.compile(
     r"(?im)^(authorization|cookie|proxy-authorization|set-cookie|x-api-key)\s*:\s*.*$"
 )
+_INLINE_HEADER_SECRET = re.compile(
+    r"(?i)(\b(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key)\s*:\s*)"
+    r"(?:bearer\s+)?[^\s,;]+"
+)
+_INLINE_NAMED_SECRET = re.compile(r"(?i)(\b(?:api[_-]?key|password|secret|token)\s*:\s*)[^\s,;]+")
 
 
 def is_sensitive_header(name: str) -> bool:
@@ -49,7 +54,10 @@ def redact_body(body: str | None) -> str | None:
     try:
         value = json.loads(body)
     except (json.JSONDecodeError, TypeError):
-        return _HEADER_SECRET.sub(r"\1: [REDACTED]", _FORM_SECRET.sub(r"\1[REDACTED]", body))
+        safe = _FORM_SECRET.sub(r"\1[REDACTED]", body)
+        safe = _HEADER_SECRET.sub(r"\1: [REDACTED]", safe)
+        safe = _INLINE_HEADER_SECRET.sub(r"\1[REDACTED]", safe)
+        return _INLINE_NAMED_SECRET.sub(r"\1[REDACTED]", safe)
     return json.dumps(_redact_value(value), separators=(",", ":"), ensure_ascii=False)
 
 

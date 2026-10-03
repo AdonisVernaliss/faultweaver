@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from faultweaver.identities.models import Identity
-from faultweaver.redaction import REDACTED, SecretRedactingFilter
+from faultweaver.redaction import REDACTED, SecretRedactingFilter, redact_body
 from tests.test_engagements_and_scope import create_engagement
 from tests.test_http_import import authorize
 
@@ -130,6 +130,17 @@ def test_logging_filter_redacts_structured_secrets() -> None:
 
     assert SecretRedactingFilter().filter(record) is True
     assert record.msg == {"password": REDACTED, "safe": "visible"}
+
+
+def test_free_text_redacts_inline_authorization_and_named_secrets() -> None:
+    text = (
+        "HTTP 403 observed. Authorization: Bearer synthetic-inline-secret; "
+        "token: synthetic-token-value"
+    )
+
+    redacted = redact_body(text)
+
+    assert redacted == "HTTP 403 observed. Authorization: [REDACTED]; token: [REDACTED]"
 
 
 def test_validation_errors_do_not_echo_identity_secrets(app_client: TestClient) -> None:
