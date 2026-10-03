@@ -11,6 +11,7 @@ from faultweaver.engagements.schemas import (
     EngagementDetail,
     EngagementResponse,
 )
+from faultweaver.findings.models import EngagementSequence
 from faultweaver.http_traffic.models import HttpExchange
 from faultweaver.identities.models import Identity
 from faultweaver.scope.models import ScopeRule
@@ -39,6 +40,7 @@ def create_engagement(payload: EngagementCreate, session: SessionDep) -> Engagem
             is_anonymous=True,
         )
     )
+    session.add(EngagementSequence(engagement_id=engagement.id))
     session.commit()
     session.refresh(engagement)
     return engagement

@@ -18,13 +18,20 @@ def test_migrations_create_a_fresh_database(tmp_path: Path) -> None:
         "candidate_replays",
         "candidates",
         "engagements",
+        "engagement_sequences",
+        "evidence",
+        "finding_lifecycle_events",
+        "findings",
         "http_exchanges",
         "identities",
+        "operator_notes",
         "response_comparisons",
+        "retest_evidence",
+        "retests",
         "scope_rules",
     }
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0002"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0003"
 
 
 def test_baseline_adopts_the_existing_schema_without_losing_data(tmp_path: Path) -> None:
@@ -43,7 +50,7 @@ def test_baseline_adopts_the_existing_schema_without_losing_data(tmp_path: Path)
         preserved = session.get(Engagement, "legacy-engagement")
         assert preserved is not None
         assert preserved.name == "Preserved engagement"
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0002"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0003"
         anonymous_count = session.scalar(
             text(
                 "SELECT count(*) FROM identities "
@@ -51,3 +58,36 @@ def test_baseline_adopts_the_existing_schema_without_losing_data(tmp_path: Path)
             )
         )
         assert anonymous_count == 1
+        assert (
+            session.scalar(
+                text(
+                    "SELECT count(*) FROM engagement_sequences "
+                    "WHERE engagement_id = 'legacy-engagement'"
+                )
+            )
+            == 1
+        )
+
+
+def test_0002_upgrades_to_latest_without_losing_data(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'version-two.db'}"
+    engine = create_engine(database_url)
+    upgrade_database(database_url, "0002")
+    with Session(engine) as session:
+        session.add(Engagement(id="v2-engagement", name="Version two engagement"))
+        session.commit()
+
+    upgrade_database(database_url)
+
+    with Session(engine) as session:
+        assert session.get(Engagement, "v2-engagement") is not None
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0003"
+        assert (
+            session.scalar(
+                text(
+                    "SELECT next_finding FROM engagement_sequences "
+                    "WHERE engagement_id = 'v2-engagement'"
+                )
+            )
+            == 1
+        )
