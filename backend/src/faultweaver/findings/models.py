@@ -29,6 +29,7 @@ class EngagementSequence(Base):
     next_finding: Mapped[int] = mapped_column(Integer, default=1)
     next_evidence: Mapped[int] = mapped_column(Integer, default=1)
     next_retest: Mapped[int] = mapped_column(Integer, default=1)
+    next_attack_chain: Mapped[int] = mapped_column(Integer, default=1)
 
 
 class Finding(Base):
