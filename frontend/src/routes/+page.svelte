@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
 
   import { api } from '../lib/api';
+  import AttackChainPanel from '../lib/components/AttackChainPanel.svelte';
   import AuthorizationMatrix from '../lib/components/AuthorizationMatrix.svelte';
   import CandidatePanel from '../lib/components/CandidatePanel.svelte';
   import ComparisonDialog from '../lib/components/ComparisonDialog.svelte';
@@ -15,6 +16,7 @@
   import ScopeDialog from '../lib/components/ScopeDialog.svelte';
   import Sidebar from '../lib/components/Sidebar.svelte';
   import type {
+    AttackChain,
     Engagement,
     EngagementDetail,
     AuthorizationMatrix as Matrix,
@@ -40,9 +42,11 @@
   let findings = $state<Finding[]>([]);
   let evidence = $state<Evidence[]>([]);
   let retests = $state<Retest[]>([]);
+  let attackChains = $state<AttackChain[]>([]);
   let focusedFindingId = $state('');
+  let focusedAttackChainId = $state('');
   let selected = $state<ExchangeDetail | null>(null);
-  let activeView = $state<'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests'>('requests');
+  let activeView = $state<'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains'>('requests');
   let loading = $state(true);
   let loadingDetail = $state(false);
   let replaying = $state(false);
@@ -80,7 +84,7 @@
     error = '';
     selected = null;
     try {
-      const [detail, scopeRules, traffic, identityContexts, authMatrix, candidateItems, findingItems, evidenceItems, retestItems] = await Promise.all([
+      const [detail, scopeRules, traffic, identityContexts, authMatrix, candidateItems, findingItems, evidenceItems, retestItems, chainItems, archivedChainItems] = await Promise.all([
         api<EngagementDetail>(`engagements/${id}`),
         api<ScopeRule[]>(`engagements/${id}/scopes`),
         api<ExchangeList>(`engagements/${id}/requests`),
@@ -89,7 +93,9 @@
         api<Candidate[]>(`engagements/${id}/candidates`),
         api<Finding[]>(`engagements/${id}/findings`),
         api<Evidence[]>(`engagements/${id}/evidence`),
-        api<Retest[]>(`engagements/${id}/retests`)
+        api<Retest[]>(`engagements/${id}/retests`),
+        api<AttackChain[]>(`engagements/${id}/attack-chains`),
+        api<AttackChain[]>(`engagements/${id}/attack-chains?status=Archived`)
       ]);
       engagement = detail;
       scopes = scopeRules;
@@ -100,6 +106,7 @@
       findings = findingItems;
       evidence = evidenceItems;
       retests = retestItems;
+      attackChains = [...chainItems, ...archivedChainItems];
       localStorage.setItem('faultweaver.engagement', id);
       if (requests.length) await selectRequest(requests[0].id);
     } catch (cause) {
@@ -134,6 +141,19 @@
       api<Evidence[]>(`engagements/${engagement.id}/evidence`),
       api<Retest[]>(`engagements/${engagement.id}/retests`)
     ]);
+  }
+
+  async function refreshAttackChains() {
+    if (!engagement) return;
+    const [active, archived] = await Promise.all([
+      api<AttackChain[]>(`engagements/${engagement.id}/attack-chains`),
+      api<AttackChain[]>(`engagements/${engagement.id}/attack-chains?status=Archived`)
+    ]);
+    attackChains = [...active, ...archived];
+  }
+
+  async function refreshChainsAndFindings() {
+    await Promise.all([refreshAttackChains(), refreshLifecycle()]);
   }
 
   async function selectRequest(id: string) {
@@ -206,6 +226,11 @@
     activeView = 'findings';
   }
 
+  function openAttackChain(id: string) {
+    focusedAttackChainId = id;
+    activeView = 'attack-chains';
+  }
+
   function openEvidence(id: string) {
     activeView = 'requests';
     void selectRequest(id);
@@ -266,6 +291,7 @@
     findingCount={findings.length}
     evidenceCount={evidence.length}
     retestCount={retests.length}
+    attackChainCount={attackChains.filter((item) => item.status !== 'Archived').length}
     {activeView}
     onview={(view) => (activeView = view)}
     oncreate={() => (createDialog = true)}
@@ -348,11 +374,13 @@
       {:else if activeView === 'candidates'}
         <CandidatePanel engagementId={engagement.id} {candidates} onchanged={refreshAnalysis} onpromoted={promotedFinding} onevidence={savedEvidence} />
       {:else if activeView === 'findings'}
-        <FindingPanel engagementId={engagement.id} {findings} {evidence} focusId={focusedFindingId} onchanged={refreshLifecycle} onevidence={savedEvidence} />
+        <FindingPanel engagementId={engagement.id} {findings} {evidence} {attackChains} focusId={focusedFindingId} onchanged={refreshLifecycle} onchainschanged={refreshChainsAndFindings} onevidence={savedEvidence} onopenchain={openAttackChain} />
       {:else if activeView === 'evidence'}
         <EvidencePanel {evidence} {findings} />
-      {:else}
+      {:else if activeView === 'retests'}
         <RetestPanel {retests} {findings} onopen={openFinding} />
+      {:else}
+        <AttackChainPanel engagementId={engagement.id} chains={attackChains} {findings} {evidence} focusId={focusedAttackChainId} onchanged={refreshChainsAndFindings} onfinding={openFinding} />
       {/if}
     {:else}
       <section class="first-run">

@@ -194,6 +194,14 @@ export interface Finding {
   notes: OperatorNote[];
   retests: Retest[];
   history: FindingHistory[];
+  attack_chains: AttackChainReference[];
+}
+
+export interface AttackChainReference {
+  id: string;
+  display_id: string;
+  title: string;
+  status: AttackChainStatus;
 }
 
 export type EvidenceType =
@@ -217,6 +225,64 @@ export interface Evidence {
   author_label: string;
   captured_at: string;
   notes: OperatorNote[];
+}
+
+export type AttackChainStatus = 'Draft' | 'Validated' | 'Archived';
+export type AttackChainStepType = 'Finding' | 'Intermediate';
+
+export interface AttackChainEvidence {
+  id: string;
+  display_id: string;
+  title: string;
+  evidence_type: EvidenceType;
+  captured_at: string;
+}
+
+export interface AttackChainFinding {
+  id: string;
+  display_id: string;
+  title: string;
+  severity: Severity;
+  status: FindingStatus;
+}
+
+export interface AttackChainStep {
+  id: string;
+  position: number;
+  step_type: AttackChainStepType;
+  finding_id: string | null;
+  title: string;
+  description: string;
+  finding: AttackChainFinding | null;
+  evidence: AttackChainEvidence[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AttackChainHistory {
+  id: string;
+  event_type: string;
+  summary: string;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AttackChain {
+  id: string;
+  engagement_id: string;
+  display_id: string;
+  title: string;
+  description: string;
+  resulting_impact: string;
+  status: AttackChainStatus;
+  steps: AttackChainStep[];
+  evidence: AttackChainEvidence[];
+  finding_count: number;
+  severity_composition: Record<string, number>;
+  history: AttackChainHistory[];
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
 }
 
 export interface Comparison {

@@ -2330,3 +2330,452 @@ kbd {
   .retest-ledger > button { grid-template-columns: 60px minmax(0, 1fr); }
   .retest-result { grid-column: 2; }
 }
+
+/* Operator-authored attack chains */
+.chain-page {
+  max-width: 1760px;
+  margin: 0 auto;
+}
+
+.chain-create {
+  display: flex;
+  align-items: end;
+  gap: 0.55rem;
+}
+
+.chain-create label,
+.chain-overview label,
+.chain-builder label,
+.chain-inspector label {
+  display: grid;
+  gap: 0.35rem;
+  color: #7d8980;
+  font-size: 0.62rem;
+}
+
+.chain-create input,
+.chain-overview input,
+.chain-overview textarea,
+.chain-builder input,
+.chain-builder select,
+.chain-builder textarea,
+.chain-inspector input,
+.chain-inspector select,
+.chain-inspector textarea,
+.filter-bar input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #343f37;
+  outline: 0;
+  background: #0e1310;
+  color: #c7d0c9;
+  font-size: 0.7rem;
+}
+
+.chain-create input,
+.chain-overview input,
+.chain-builder input,
+.chain-builder select,
+.chain-inspector input,
+.chain-inspector select,
+.filter-bar input {
+  min-height: 38px;
+  padding: 0 0.65rem;
+}
+
+.chain-overview textarea,
+.chain-builder textarea,
+.chain-inspector textarea {
+  resize: vertical;
+  padding: 0.65rem;
+  line-height: 1.55;
+}
+
+.chain-create input:focus,
+.chain-overview input:focus,
+.chain-overview textarea:focus,
+.chain-builder input:focus,
+.chain-builder select:focus,
+.chain-builder textarea:focus,
+.chain-inspector input:focus,
+.chain-inspector select:focus,
+.chain-inspector textarea:focus,
+.filter-bar input:focus,
+.filter-bar select:focus,
+.attack-path li > button:focus-visible,
+.chain-reference:focus-visible {
+  border-color: #667d6c;
+  box-shadow: 0 0 0 2px rgb(103 130 110 / 14%);
+}
+
+.chain-workspace {
+  display: grid;
+  grid-template-columns: minmax(255px, 310px) minmax(0, 1fr);
+  min-height: calc(100vh - 290px);
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.chain-list {
+  max-height: calc(100vh - 290px);
+  overflow: auto;
+}
+
+.chain-list em {
+  color: #829087;
+  white-space: normal;
+}
+
+.chain-detail,
+.chain-main {
+  min-width: 0;
+}
+
+.chain-detail {
+  background: #111613;
+}
+
+.chain-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(255px, 310px);
+}
+
+.chain-main {
+  border-right: 1px solid var(--border);
+}
+
+.chain-overview,
+.chain-builder,
+.chain-inspector > section {
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.chain-overview {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.8fr) minmax(250px, 1.2fr);
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.chain-overview label:nth-child(3),
+.chain-overview .button {
+  grid-column: 1 / -1;
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.section-heading h3,
+.chain-builder h3,
+.chain-inspector h3 {
+  margin: 0.3rem 0 0;
+  color: #d1d9d3;
+  font-size: 0.76rem;
+}
+
+.section-heading > strong {
+  color: #748078;
+  font: 600 0.58rem/1 var(--mono);
+}
+
+.attack-path {
+  padding: 1.15rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.attack-path ol {
+  position: relative;
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attack-path ol::before {
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 22px;
+  width: 1px;
+  background: #435448;
+  content: '';
+}
+
+.attack-path li {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.attack-path li > button {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #303a33;
+  border-left: 3px solid #59675d;
+  background: #0e1310;
+  color: inherit;
+  text-align: left;
+}
+
+.attack-path li.finding-step > button {
+  border-left-color: var(--accent);
+  background: #111914;
+}
+
+.attack-path li.selected > button,
+.attack-path li > button:hover {
+  border-color: #536559;
+  background: #18211a;
+}
+
+.step-index {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #506055;
+  border-radius: 50%;
+  background: #141c17;
+  color: var(--accent-bright);
+  font: 650 0.62rem/1 var(--mono);
+}
+
+.attack-path li > button div {
+  min-width: 0;
+}
+
+.attack-path li > button small,
+.attack-path li > button strong,
+.attack-path li > button p {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attack-path li > button small,
+.attack-path li > button em {
+  color: #748078;
+  font: 600 0.54rem/1.3 var(--mono);
+}
+
+.attack-path li > button strong {
+  margin: 0.28rem 0;
+  color: #d2dad4;
+  font-size: 0.72rem;
+}
+
+.attack-path li > button p {
+  margin: 0;
+  color: #818d84;
+  font-size: 0.64rem;
+}
+
+.step-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  align-content: center;
+  gap: 0.25rem;
+}
+
+.step-actions button {
+  height: 30px;
+  border: 1px solid #333e36;
+  background: #101512;
+  color: #849087;
+}
+
+.empty-path {
+  display: block !important;
+  padding: 1.2rem 1rem 1.2rem 3.5rem;
+  border: 1px dashed #333e36;
+  color: #87928a;
+}
+
+.empty-path p {
+  margin: 0.35rem 0 0;
+  color: var(--faint);
+  font-size: 0.68rem;
+}
+
+.chain-builder {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.chain-builder > div,
+.chain-inspector > section {
+  display: grid;
+  align-content: start;
+  gap: 0.7rem;
+}
+
+.chain-builder > div {
+  padding: 0.9rem;
+  border: 1px solid var(--border-soft);
+  background: #0e1310;
+}
+
+.chain-inspector {
+  min-width: 0;
+  background: #0f1411;
+}
+
+.chain-inspector p {
+  margin: 0;
+  color: #758078;
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+
+.attached-list {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.attached-list > span,
+.chain-reference {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  padding: 0.55rem;
+  border: 1px solid var(--border-soft);
+  background: #0d120f;
+  color: #9ba69e;
+  font-size: 0.62rem;
+  text-align: left;
+}
+
+.attached-list > span code,
+.chain-reference code {
+  color: var(--accent-bright);
+}
+
+.chain-reference strong,
+.chain-reference span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chain-reference strong {
+  color: #bac4bc;
+  font-size: 0.65rem;
+}
+
+.chain-reference span {
+  color: var(--faint);
+  font: 0.55rem/1.3 var(--mono);
+}
+
+.finding-chains > .button {
+  margin: 0.65rem 0;
+}
+
+.finding-chains .field-grid > .button {
+  align-self: end;
+}
+
+@media (max-width: 1280px) {
+  .chain-grid {
+    grid-template-columns: minmax(0, 1fr) 255px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .chain-create {
+    width: 100%;
+  }
+
+  .chain-create label {
+    flex: 1;
+  }
+
+  .chain-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chain-main {
+    border-right: 0;
+  }
+
+  .chain-inspector {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-top: 1px solid var(--border);
+  }
+
+  .chain-inspector > section {
+    border-right: 1px solid var(--border-soft);
+  }
+}
+
+@media (max-width: 768px) {
+  .chain-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .chain-list {
+    max-height: 260px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chain-overview,
+  .chain-builder,
+  .chain-inspector {
+    grid-template-columns: 1fr;
+  }
+
+  .chain-overview label:nth-child(3),
+  .chain-overview .button {
+    grid-column: auto;
+  }
+
+  .chain-inspector > section {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .chain-create {
+    display: grid;
+  }
+
+  .attack-path li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .attack-path li > button {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .attack-path li > button em {
+    grid-column: 2;
+  }
+
+  .step-actions {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .step-actions button {
+    min-height: 36px;
+  }
+}

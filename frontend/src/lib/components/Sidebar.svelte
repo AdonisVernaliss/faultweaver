@@ -9,6 +9,7 @@
     findingCount,
     evidenceCount,
     retestCount,
+    attackChainCount,
     activeView,
     onview,
     oncreate
@@ -20,12 +21,13 @@
     findingCount: number;
     evidenceCount: number;
     retestCount: number;
-    activeView: 'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests';
-    onview: (view: 'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests') => void;
+    attackChainCount: number;
+    activeView: 'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains';
+    onview: (view: 'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains') => void;
     oncreate: () => void;
   } = $props();
 
-  const futureSections = ['Attack Chains', 'Report'];
+  const futureSections = ['Report'];
 </script>
 
 <aside class="sidebar">
@@ -57,6 +59,7 @@
     <button aria-label="Findings" class:active={activeView === 'findings'} class="nav-item" type="button" onclick={() => onview('findings')}><span class="nav-glyph">◆</span><span>Findings</span><em>{findingCount}</em></button>
     <button aria-label="Evidence" class:active={activeView === 'evidence'} class="nav-item" type="button" onclick={() => onview('evidence')}><span class="nav-glyph">▣</span><span>Evidence</span><em>{evidenceCount}</em></button>
     <button aria-label="Retests" class:active={activeView === 'retests'} class="nav-item" type="button" onclick={() => onview('retests')}><span class="nav-glyph">↻</span><span>Retests</span><em>{retestCount}</em></button>
+    <button aria-label="Attack Chains" class:active={activeView === 'attack-chains'} class="nav-item" type="button" onclick={() => onview('attack-chains')}><span class="nav-glyph">⌁</span><span>Attack Chains</span><em>{attackChainCount}</em></button>
     {#each futureSections as section}
       <span class="nav-item disabled" aria-disabled="true">
         <span class="nav-glyph">·</span><span>{section}</span><small>LATER</small>

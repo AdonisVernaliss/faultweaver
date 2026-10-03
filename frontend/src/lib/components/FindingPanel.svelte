@@ -1,10 +1,11 @@
 <script lang="ts">
   import { api } from '../api';
-  import type { Evidence, Finding, FindingStatus, Retest, RetestStatus, Severity } from '../types';
+  import type { AttackChain, Evidence, Finding, FindingStatus, Retest, RetestStatus, Severity } from '../types';
 
-  let { engagementId, findings, evidence, focusId, onchanged, onevidence }: {
-    engagementId: string; findings: Finding[]; evidence: Evidence[]; focusId: string;
-    onchanged: () => Promise<void>; onevidence: (item: Evidence) => void;
+  let { engagementId, findings, evidence, attackChains, focusId, onchanged, onchainschanged, onevidence, onopenchain }: {
+    engagementId: string; findings: Finding[]; evidence: Evidence[]; attackChains: AttackChain[]; focusId: string;
+    onchanged: () => Promise<void>; onchainschanged: () => Promise<void>;
+    onevidence: (item: Evidence) => void; onopenchain: (id: string) => void;
   } = $props();
   let selectedId = $state('');
   let editing = $state(false);
@@ -18,6 +19,9 @@
   let retestStatus = $state<RetestStatus>('Fixed');
   let retestNotes = $state('');
   let retestEvidenceIds = $state<string[]>([]);
+  let targetChainId = $state('');
+  let chainPosition = $state(1);
+  let newChainTitle = $state('');
 
   $effect(() => { if (focusId) selectedId = focusId; });
   let filtered = $derived(findings.filter((item) =>
@@ -97,6 +101,31 @@
     retestEvidenceIds = retestEvidenceIds.includes(id) ? retestEvidenceIds.filter((item) => item !== id) : [...retestEvidenceIds, id];
   }
 
+  async function addToExistingChain() {
+    if (!selected || !targetChainId) return;
+    await run(async () => {
+      await api(`engagements/${engagementId}/attack-chains/${targetChainId}/steps`, {
+        method: 'POST', body: JSON.stringify({ step_type: 'Finding', finding_id: selected.id, position: chainPosition })
+      });
+      await onchainschanged();
+    });
+  }
+
+  async function createChainWithFinding() {
+    if (!selected || !newChainTitle.trim()) return;
+    await run(async () => {
+      const chain = await api<AttackChain>(`engagements/${engagementId}/attack-chains`, {
+        method: 'POST', body: JSON.stringify({ title: newChainTitle })
+      });
+      await api(`engagements/${engagementId}/attack-chains/${chain.id}/steps`, {
+        method: 'POST', body: JSON.stringify({ step_type: 'Finding', finding_id: selected.id, position: 1 })
+      });
+      newChainTitle = '';
+      await onchainschanged();
+      onopenchain(chain.id);
+    });
+  }
+
   async function run(action: () => Promise<void>) {
     busy = true; error = '';
     try { await action(); }
@@ -119,6 +148,8 @@
           <div class="context-grid"><span><small>STATUS</small><strong>{selected.status}</strong></span><span><small>CONFIRMED</small><strong>{new Date(selected.confirmed_at).toLocaleDateString()}</strong></span><span><small>RETEST</small><strong>{selected.latest_retest?.status ?? 'Not Retested'}</strong></span><span><small>UPDATED</small><strong>{new Date(selected.updated_at).toLocaleString()}</strong></span></div>
           <section class="report-section"><h3>Description</h3><p class:empty-copy={!selected.description}>{selected.description || 'Awaiting operator-authored description.'}</p></section><section class="report-section"><h3>Impact</h3><p class:empty-copy={!selected.impact}>{selected.impact || 'Awaiting operator-authored impact.'}</p></section><section class="report-section"><h3>Reproduction</h3><ol>{#each selected.reproduction_steps as step}<li>{step}</li>{:else}<li class="empty-copy">No reproduction steps recorded.</li>{/each}</ol></section><section class="report-section"><h3>Remediation</h3><p class:empty-copy={!selected.remediation}>{selected.remediation || 'No remediation guidance authored yet.'}</p></section>
         {/if}
+
+        <section class="report-section finding-chains"><h3>Used in Attack Chains</h3><div class="attached-list">{#each selected.attack_chains as chain}<button class="chain-reference" type="button" onclick={() => onopenchain(chain.id)}><code>{chain.display_id}</code><strong>{chain.title}</strong><span>{chain.status}</span></button>{:else}<p class="empty-copy">This finding is not used in an attack chain.</p>{/each}</div><div class="field-grid two"><label><span>Add to existing chain</span><select bind:value={targetChainId}><option value="">Select chain</option>{#each attackChains.filter((chain) => chain.status !== 'Archived') as chain}<option value={chain.id}>{chain.display_id} · {chain.title}</option>{/each}</select></label><label><span>Insert at position</span><input type="number" min="1" bind:value={chainPosition} /></label></div><button class="button secondary" type="button" onclick={addToExistingChain} disabled={busy || !targetChainId}>Add to Attack Chain</button><div class="field-grid two"><label><span>Or create a new chain</span><input bind:value={newChainTitle} placeholder="Attack chain title" /></label><button class="button secondary" type="button" onclick={createChainWithFinding} disabled={busy || !newChainTitle.trim()}>Create Chain with Finding</button></div></section>
 
         <section class="report-section"><h3>Evidence</h3><div class="evidence-groups"><div><small>ORIGINAL EVIDENCE</small>{#each findingEvidence.filter((item) => !retestEvidence.has(item.id)) as item}<span><code>{item.display_id}</code>{item.title}</span>{:else}<p class="empty-copy">No original evidence linked.</p>{/each}</div><div><small>RETEST EVIDENCE</small>{#each findingEvidence.filter((item) => retestEvidence.has(item.id)) as item}<span><code>{item.display_id}</code>{item.title}</span>{:else}<p class="empty-copy">No retest evidence linked.</p>{/each}</div></div>{#if selected.supporting_comparison_id}<button class="button secondary" type="button" onclick={saveOriginalComparison} disabled={busy}>Save original comparison as evidence</button>{/if}<label><span>Capture operator note as immutable evidence</span><textarea bind:value={evidenceText} rows="3"></textarea></label><button class="button secondary" type="button" onclick={saveNoteEvidence} disabled={busy || !evidenceText.trim()}>Save as evidence</button></section>
 
