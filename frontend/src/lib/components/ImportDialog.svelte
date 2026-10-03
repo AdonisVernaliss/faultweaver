@@ -155,9 +155,6 @@ paths:
     </form>
   {:else}
     <div class="stack-form">
-      {#if mode !== 'curl'}<label><span>{mode === 'har' ? 'HAR file' : 'OpenAPI JSON or YAML file'}</span><input type="file" accept={mode === 'har' ? '.har,application/json' : '.json,.yaml,.yml,application/json,application/yaml,text/yaml'} onchange={selectedFile} /></label>{/if}
-      <label><span>{mode === 'curl' ? 'cURL command' : mode === 'har' ? 'HAR document' : 'OpenAPI document'}</span><textarea class="import-editor" bind:value={content} rows="12" spellcheck="false" oninput={() => (preview = null)} placeholder={mode === 'har' ? 'Paste HAR 1.2 JSON or choose a file' : undefined}></textarea></label>
-      <p class="form-note">{mode === 'curl' ? 'The command is parsed as inert text and is never passed to a shell.' : mode === 'openapi' ? 'Servers remain metadata. External references are not fetched and no endpoint is contacted.' : 'HAR is treated as untrusted data. Entries are bounded, scope-checked, and never executed.'}</p>
       {#if preview}
         <section class="import-preview" aria-live="polite">
           <header><div><span class="eyebrow">REDACTED PREVIEW</span><h3>{mode.toUpperCase()} summary</h3></div><strong>{preview.accepted_count} accepted</strong></header>
@@ -166,9 +163,13 @@ paths:
           {#if preview.endpoints.length}<div class="preview-records">{#each preview.endpoints as item}<article><code>{item.method}</code><strong>{item.path_template}</strong><span>{item.server_url ?? 'No declared server'}{item.operation_id ? ` · ${item.operation_id}` : ''}</span><em>{item.auth.join(', ') || 'AUTH NOT DECLARED'}</em></article>{/each}</div>{/if}
           {#if preview.warnings.length}<details class="warning-list"><summary>{importWarningLabel(preview.warnings)}</summary>{#each preview.warnings as warning}<p>{warning}</p>{/each}</details>{/if}
         </section>
+      {:else}
+        {#if mode !== 'curl'}<label><span>{mode === 'har' ? 'HAR file' : 'OpenAPI JSON or YAML file'}</span><input type="file" accept={mode === 'har' ? '.har,application/json' : '.json,.yaml,.yml,application/json,application/yaml,text/yaml'} onchange={selectedFile} /></label>{/if}
+        <label><span>{mode === 'curl' ? 'cURL command' : mode === 'har' ? 'HAR document' : 'OpenAPI document'}</span><textarea class="import-editor" bind:value={content} rows="12" spellcheck="false" placeholder={mode === 'har' ? 'Paste HAR 1.2 JSON or choose a file' : undefined}></textarea></label>
+        <p class="form-note">{mode === 'curl' ? 'The command is parsed as inert text and is never passed to a shell.' : mode === 'openapi' ? 'Servers remain metadata. External references are not fetched and no endpoint is contacted.' : 'HAR is treated as untrusted data. Entries are bounded, scope-checked, and never executed.'}</p>
       {/if}
       {#if error}<p class="form-error" role="alert">{error}</p>{/if}
-      <div class="dialog-actions"><button class="button ghost" type="button" onclick={onclose}>Cancel</button>{#if preview}<button class="button primary" type="button" onclick={importDocument} disabled={busy}>{busy ? 'Importing…' : `Import ${preview.accepted_count} records`}</button>{:else}<button class="button primary" type="button" onclick={parsePreview} disabled={busy || !content.trim()}>{busy ? 'Parsing…' : 'Parse and preview'}</button>{/if}</div>
+      <div class="dialog-actions">{#if preview}<button class="button ghost" type="button" onclick={() => (preview = null)}>Edit source</button><button class="button primary" type="button" onclick={importDocument} disabled={busy}>{busy ? 'Importing…' : `Import ${preview.accepted_count} records`}</button>{:else}<button class="button ghost" type="button" onclick={onclose}>Cancel</button><button class="button primary" type="button" onclick={parsePreview} disabled={busy || !content.trim()}>{busy ? 'Parsing…' : 'Parse and preview'}</button>{/if}</div>
     </div>
   {/if}
 </DialogShell>
