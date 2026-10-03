@@ -11,6 +11,7 @@ describe('request formatting', () => {
   it('formats transport metadata', () => {
     expect(formatDuration(null)).toBe('—');
     expect(formatDuration(12.6)).toBe('13 ms');
-    expect(sourceLabel('raw_import')).toBe('IMPORT');
+    expect(sourceLabel('raw_import')).toBe('RAW HTTP');
+    expect(sourceLabel('curl')).toBe('cURL');
   });
 });

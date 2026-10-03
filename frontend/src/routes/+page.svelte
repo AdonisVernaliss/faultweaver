@@ -3,6 +3,7 @@
 
   import { api } from '../lib/api';
   import AttackChainPanel from '../lib/components/AttackChainPanel.svelte';
+  import AttackSurfacePanel from '../lib/components/AttackSurfacePanel.svelte';
   import AuthorizationMatrix from '../lib/components/AuthorizationMatrix.svelte';
   import CandidatePanel from '../lib/components/CandidatePanel.svelte';
   import ComparisonDialog from '../lib/components/ComparisonDialog.svelte';
@@ -17,6 +18,7 @@
   import Sidebar from '../lib/components/Sidebar.svelte';
   import type {
     AttackChain,
+    AttackSurfaceEndpoint,
     Engagement,
     EngagementDetail,
     AuthorizationMatrix as Matrix,
@@ -28,6 +30,8 @@
     ExchangeList,
     Identity,
     Finding,
+    ImportBatch,
+    ImportResult,
     Retest,
     ScopeRule
   } from '../lib/types';
@@ -43,10 +47,12 @@
   let evidence = $state<Evidence[]>([]);
   let retests = $state<Retest[]>([]);
   let attackChains = $state<AttackChain[]>([]);
+  let attackSurface = $state<AttackSurfaceEndpoint[]>([]);
+  let importBatches = $state<ImportBatch[]>([]);
   let focusedFindingId = $state('');
   let focusedAttackChainId = $state('');
   let selected = $state<ExchangeDetail | null>(null);
-  let activeView = $state<'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains'>('requests');
+  let activeView = $state<'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains'>('requests');
   let loading = $state(true);
   let loadingDetail = $state(false);
   let replaying = $state(false);
@@ -84,10 +90,12 @@
     error = '';
     selected = null;
     try {
-      const [detail, scopeRules, traffic, identityContexts, authMatrix, candidateItems, findingItems, evidenceItems, retestItems, chainItems, archivedChainItems] = await Promise.all([
+      const [detail, scopeRules, traffic, surfaceItems, batchItems, identityContexts, authMatrix, candidateItems, findingItems, evidenceItems, retestItems, chainItems, archivedChainItems] = await Promise.all([
         api<EngagementDetail>(`engagements/${id}`),
         api<ScopeRule[]>(`engagements/${id}/scopes`),
         api<ExchangeList>(`engagements/${id}/requests`),
+        api<AttackSurfaceEndpoint[]>(`engagements/${id}/attack-surface`),
+        api<ImportBatch[]>(`engagements/${id}/imports`),
         api<Identity[]>(`engagements/${id}/identities`),
         api<Matrix>(`engagements/${id}/authorization-matrix`),
         api<Candidate[]>(`engagements/${id}/candidates`),
@@ -100,6 +108,8 @@
       engagement = detail;
       scopes = scopeRules;
       requests = traffic.items;
+      attackSurface = surfaceItems;
+      importBatches = batchItems;
       identities = identityContexts;
       matrix = authMatrix;
       candidates = candidateItems;
@@ -119,6 +129,14 @@
     const traffic = await api<ExchangeList>(`engagements/${engagement.id}/requests`);
     requests = traffic.items;
     if (selectId) await selectRequest(selectId);
+  }
+
+  async function refreshImports() {
+    if (!engagement) return;
+    [attackSurface, importBatches] = await Promise.all([
+      api<AttackSurfaceEndpoint[]>(`engagements/${engagement.id}/attack-surface`),
+      api<ImportBatch[]>(`engagements/${engagement.id}/imports`)
+    ]);
   }
 
   async function refreshIdentities() {
@@ -248,17 +266,13 @@
     showNotice('Authorized scope added');
   }
 
-  function importedRequest(exchange: Exchange) {
-    importDialog = false;
-    void refreshRequests(exchange.id);
-    showNotice('Request imported without sending traffic');
+  async function importedTraffic(result: ImportResult | Exchange) {
+    const selectId = 'batch' in result ? result.request_ids[0] : result.id;
+    await Promise.all([refreshRequests(selectId), refreshImports()]);
+    showNotice('batch' in result ? `${result.batch.display_id} imported without sending traffic` : 'Request imported without sending traffic');
   }
 
   function openImport() {
-    if (!scopes.length) {
-      scopeDialog = true;
-      return;
-    }
     importDialog = true;
   }
 
@@ -292,6 +306,7 @@
     evidenceCount={evidence.length}
     retestCount={retests.length}
     attackChainCount={attackChains.filter((item) => item.status !== 'Archived').length}
+    attackSurfaceCount={attackSurface.length}
     {activeView}
     onview={(view) => (activeView = view)}
     oncreate={() => (createDialog = true)}
@@ -367,6 +382,8 @@
           onsaveevidence={saveRequestEvidence}
           onimport={openImport}
         />
+      {:else if activeView === 'attack-surface'}
+        <AttackSurfacePanel endpoints={attackSurface} batches={importBatches} onimport={openImport} />
       {:else if activeView === 'identities'}
         <IdentityPanel engagementId={engagement.id} {identities} onchanged={refreshIdentities} />
       {:else if activeView === 'matrix'}
@@ -410,12 +427,12 @@
     oncreated={createdScope}
   />
 {/if}
-{#if importDialog && engagement && scopes[0]}
+{#if importDialog && engagement}
   <ImportDialog
     engagementId={engagement.id}
-    initialBaseUrl={scopeUrl(scopes[0])}
+    initialBaseUrl={scopes[0] ? scopeUrl(scopes[0]) : 'https://example.test/'}
     onclose={() => (importDialog = false)}
-    onimported={importedRequest}
+    onimported={importedTraffic}
   />
 {/if}
 {#if comparisonDialog && selected}

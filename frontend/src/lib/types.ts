@@ -34,9 +34,12 @@ export interface Exchange {
   engagement_id: string;
   parent_exchange_id: string | null;
   identity_id: string | null;
+  import_batch_id: string | null;
+  endpoint_id: string | null;
+  source_entry_index: number | null;
   auth_source: 'original' | 'identity';
   operator_modified: boolean;
-  source: 'raw_import' | 'replay';
+  source: 'raw_import' | 'har' | 'curl' | 'openapi' | 'manual' | 'replay';
   method: string;
   url: string;
   host: string;
@@ -60,6 +63,87 @@ export interface ExchangeDetail extends Exchange {
 export interface ExchangeList {
   items: Exchange[];
   total: number;
+}
+
+export type ImportFormat = 'raw' | 'har' | 'curl' | 'openapi';
+
+export interface ImportRequestPreview {
+  source_entry_index: number | null;
+  method: string;
+  url: string;
+  header_count: number;
+  cookie_count: number;
+  body_kind: string | null;
+  body_bytes: number;
+  response_status: number | null;
+  scope_allowed: boolean;
+}
+
+export interface ImportEndpointPreview {
+  method: string;
+  path_template: string;
+  server_url: string | null;
+  operation_id: string | null;
+  auth: string[];
+}
+
+export interface ImportPreview {
+  import_format: 'har' | 'curl' | 'openapi';
+  total_records: number;
+  accepted_count: number;
+  response_count: number;
+  skipped_count: number;
+  warnings: string[];
+  requests: ImportRequestPreview[];
+  endpoints: ImportEndpointPreview[];
+}
+
+export interface ImportBatch {
+  id: string;
+  engagement_id: string;
+  display_id: string;
+  import_format: 'har' | 'curl' | 'openapi';
+  original_filename: string | null;
+  status: string;
+  total_records: number;
+  imported_count: number;
+  response_count: number;
+  skipped_count: number;
+  warning_count: number;
+  new_endpoint_count: number;
+  known_endpoint_count: number;
+  warnings: string[];
+  created_at: string;
+}
+
+export interface ImportResult {
+  batch: ImportBatch;
+  request_ids: string[];
+  endpoint_ids: string[];
+}
+
+export interface AttackSurfaceEndpoint {
+  id: string;
+  method: string;
+  scheme: string | null;
+  host: string | null;
+  port: number | null;
+  path_template: string;
+  sources: string[];
+  observed_request_count: number;
+  declared_by_openapi: boolean;
+  state: 'observed_only' | 'declared_only' | 'observed_and_declared';
+  metadata: {
+    operation_id?: string | null;
+    summary?: string | null;
+    tags?: string[];
+    parameters?: { name?: string; in?: string; required?: boolean }[];
+    request_content_types?: string[];
+    responses?: Record<string, { content_types?: string[] }>;
+    security?: { name?: string; kind?: string; location?: string | null }[];
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Identity {

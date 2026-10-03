@@ -4,6 +4,7 @@
   let {
     engagement,
     requestCount,
+    attackSurfaceCount,
     identityCount,
     candidateCount,
     findingCount,
@@ -16,14 +17,15 @@
   }: {
     engagement: EngagementDetail | null;
     requestCount: number;
+    attackSurfaceCount: number;
     identityCount: number;
     candidateCount: number;
     findingCount: number;
     evidenceCount: number;
     retestCount: number;
     attackChainCount: number;
-    activeView: 'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains';
-    onview: (view: 'requests' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains') => void;
+    activeView: 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains';
+    onview: (view: 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains') => void;
     oncreate: () => void;
   } = $props();
 
@@ -52,6 +54,9 @@
   <nav aria-label="Engagement workspace">
     <button aria-label="Requests" class:active={activeView === 'requests'} class="nav-item" type="button" onclick={() => onview('requests')} aria-current={activeView === 'requests' ? 'page' : undefined}>
       <span class="nav-glyph">↗</span><span>Requests</span><em>{requestCount}</em>
+    </button>
+    <button aria-label="Attack Surface" class:active={activeView === 'attack-surface'} class="nav-item" type="button" onclick={() => onview('attack-surface')} aria-current={activeView === 'attack-surface' ? 'page' : undefined}>
+      <span class="nav-glyph">⌗</span><span>Attack Surface</span><em>{attackSurfaceCount}</em>
     </button>
     <button aria-label="Identities" class:active={activeView === 'identities'} class="nav-item" type="button" onclick={() => onview('identities')}><span class="nav-glyph">◎</span><span>Identities</span><em>{identityCount}</em></button>
     <button aria-label="Auth matrix" class:active={activeView === 'matrix'} class="nav-item" type="button" onclick={() => onview('matrix')}><span class="nav-glyph">▦</span><span>Auth matrix</span></button>

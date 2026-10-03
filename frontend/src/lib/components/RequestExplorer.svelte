@@ -27,6 +27,7 @@
   } = $props();
 
   let filter = $state('');
+  let sourceFilter = $state('');
   let detailTab = $state<'request' | 'response'>('request');
   let representation = $state<'raw' | 'headers'>('raw');
 
@@ -34,11 +35,12 @@
     requests.filter((request) => {
       const needle = filter.trim().toLowerCase();
       return (
-        !needle ||
-        request.method.toLowerCase().includes(needle) ||
-        request.host.toLowerCase().includes(needle) ||
-        requestTarget(request.path, request.query).toLowerCase().includes(needle) ||
-        String(request.response_status ?? '').includes(needle)
+        (!sourceFilter || request.source === sourceFilter) &&
+        (!needle ||
+          request.method.toLowerCase().includes(needle) ||
+          request.host.toLowerCase().includes(needle) ||
+          requestTarget(request.path, request.query).toLowerCase().includes(needle) ||
+          String(request.response_status ?? '').includes(needle))
       );
     })
   );
@@ -68,6 +70,7 @@
       <input bind:value={filter} placeholder="Filter method, host, path, or status" />
       <kbd>⌘K</kbd>
     </label>
+    <label class="source-filter"><span class="sr-only">Filter by import source</span><select bind:value={sourceFilter}><option value="">All sources</option><option value="raw_import">Raw HTTP</option><option value="har">HAR</option><option value="curl">cURL</option><option value="openapi">OpenAPI-generated</option><option value="replay">Replay</option></select></label>
     <div class="toolbar-stats">
       <span><strong>{filtered.length}</strong> visible</span>
       <span><strong>{requests.filter((request) => request.source === 'replay').length}</strong> replays</span>

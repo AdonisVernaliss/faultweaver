@@ -9,5 +9,12 @@ export function formatDuration(milliseconds: number | null): string {
 }
 
 export function sourceLabel(source: string): string {
-  return source === 'raw_import' ? 'IMPORT' : source.toUpperCase();
+  return {
+    raw_import: 'RAW HTTP',
+    har: 'HAR',
+    curl: 'cURL',
+    openapi: 'OPENAPI',
+    manual: 'MANUAL',
+    replay: 'REPLAY'
+  }[source] ?? source.toUpperCase();
 }
