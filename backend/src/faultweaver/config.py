@@ -7,6 +7,9 @@ from pathlib import Path
 class Settings:
     database_url: str
     allowed_origins: tuple[str, ...]
+    request_timeout_seconds: float = 10.0
+    max_response_bytes: int = 1_000_000
+    max_redirects: int = 5
 
     @classmethod
     def from_environment(cls) -> "Settings":

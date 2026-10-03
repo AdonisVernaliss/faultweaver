@@ -2,15 +2,23 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import partial
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from faultweaver import __version__
 from faultweaver.config import Settings
-from faultweaver.database import Base, create_session_factory, session_dependency
+from faultweaver.database import Base, create_session_factory, get_session, session_dependency
+from faultweaver.engagements.router import router as engagements_router
+from faultweaver.http_traffic.router import router as http_traffic_router
+from faultweaver.scope.router import router as scope_router
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    http_transport: httpx.BaseTransport | None = None,
+) -> FastAPI:
     resolved_settings = settings or Settings.from_environment()
     session_factory = create_session_factory(resolved_settings.database_url)
 
@@ -25,8 +33,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=__version__,
         lifespan=lifespan,
     )
+    app.state.settings = resolved_settings
     app.state.session_factory = session_factory
-    app.dependency_overrides[session_dependency] = partial(session_dependency, session_factory)
+    app.state.http_transport = http_transport
+    app.dependency_overrides[get_session] = partial(session_dependency, session_factory)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(resolved_settings.allowed_origins),
@@ -38,6 +48,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/health", tags=["system"])
     def health() -> dict[str, str]:
         return {"status": "ok", "version": __version__}
+
+    app.include_router(engagements_router)
+    app.include_router(scope_router)
+    app.include_router(http_traffic_router)
 
     return app
 

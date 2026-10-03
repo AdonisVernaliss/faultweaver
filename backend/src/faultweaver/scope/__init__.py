@@ -1,0 +1,1 @@
+"""Authorized target scope domain."""
