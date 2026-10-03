@@ -1,5 +1,4 @@
 from typing import Annotated
-from urllib.parse import urlsplit
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -18,21 +17,18 @@ from faultweaver.http_traffic.parser import (
 from faultweaver.http_traffic.replay import (
     RedirectLimitError,
     ScopeViolationError,
-    apply_identity,
-    execute_replay,
 )
 from faultweaver.http_traffic.schemas import (
     ExchangeDetail,
     ExchangeList,
     ExchangeResponse,
-    HeaderEntry,
     RawImportCreate,
     ReplayCreate,
     public_exchange,
 )
-from faultweaver.identities.models import Identity
+from faultweaver.http_traffic.service import build_replay_exchange
 from faultweaver.scope.models import ScopeRule
-from faultweaver.scope.rules import ScopeRuleValue, is_url_in_scope, split_http_url
+from faultweaver.scope.rules import ScopeRuleValue, is_url_in_scope
 
 router = APIRouter(tags=["http traffic"])
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -164,86 +160,22 @@ def replay_request(
     if original is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
 
-    method = payload.method or original.method
-    url = str(payload.url) if payload.url is not None else original.url
-    headers = payload.headers if payload.headers is not None else [
-        HeaderEntry.model_validate(item) for item in original.request_headers
-    ]
-    body = payload.body if "body" in payload.model_fields_set else original.request_body
-    identity: Identity | None = None
-    auth_source = "original"
-    if payload.identity_id is not None:
-        identity = session.scalar(
-            select(Identity).where(
-                Identity.id == payload.identity_id,
-                Identity.engagement_id == original.engagement_id,
-            )
-        )
-        if identity is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found"
-            )
-        engagement_identities = session.scalars(
-            select(Identity).where(Identity.engagement_id == original.engagement_id)
-        )
-        managed_header_names = {
-            name.lower()
-            for item in engagement_identities
-            for name in (
-                *[header["name"] for header in item.custom_headers],
-                *([item.api_key_header] if item.api_key_header else []),
-            )
-        }
-        headers = apply_identity(
-            headers, identity, managed_header_names=managed_header_names
-        )
-        auth_source = "identity"
-    settings = request.app.state.settings
-
     try:
-        with httpx.Client(
+        replay = build_replay_exchange(
+            session,
+            original=original,
+            payload=payload,
+            settings=request.app.state.settings,
             transport=request.app.state.http_transport,
-            timeout=settings.request_timeout_seconds,
-        ) as client:
-            result = execute_replay(
-                client,
-                method=method,
-                url=url,
-                headers=headers,
-                body=body,
-                scopes=_scope_values(session, original.engagement_id),
-                max_redirects=settings.max_redirects,
-                max_response_bytes=settings.max_response_bytes,
-            )
-        _, host, _, path = split_http_url(result.url)
+            scopes=_scope_values(session, original.engagement_id),
+        )
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except ScopeViolationError as error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
     except (httpx.HTTPError, RedirectLimitError, ValidationError) as error:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
 
-    replay = HttpExchange(
-        engagement_id=original.engagement_id,
-        parent_exchange_id=original.id,
-        identity_id=identity.id if identity is not None else None,
-        auth_source=auth_source,
-        operator_modified=bool(
-            {"method", "url", "headers", "body"}.intersection(payload.model_fields_set)
-        ),
-        source="replay",
-        method=result.method,
-        url=result.url,
-        host=host,
-        path=path,
-        query=urlsplit(result.url).query,
-        request_headers=result.request_headers,
-        request_body=result.request_body,
-        response_status=result.status,
-        response_headers=result.response_headers,
-        response_body=result.response_body,
-        response_elapsed_ms=result.elapsed_ms,
-        response_truncated=result.response_truncated,
-        redirect_chain=result.redirect_chain,
-    )
     session.add(replay)
     session.commit()
     session.refresh(replay)

@@ -60,6 +60,12 @@ def _redact_value(value: Any, key: str | None = None) -> Any:
     if key is not None and is_sensitive_key(key):
         return REDACTED
     if isinstance(value, dict):
+        if (
+            isinstance(value.get("name"), str)
+            and "value" in value
+            and is_sensitive_header(value["name"])
+        ):
+            return {**value, "value": REDACTED}
         return {item_key: _redact_value(item, item_key) for item_key, item in value.items()}
     if isinstance(value, list):
         return [_redact_value(item) for item in value]
@@ -87,6 +93,13 @@ class SecretRedactingFilter(logging.Filter):
 
 def install_log_redaction() -> None:
     root = logging.getLogger()
-    if any(isinstance(item, SecretRedactingFilter) for item in root.filters):
-        return
-    root.addFilter(SecretRedactingFilter())
+    redacting_filter = SecretRedactingFilter()
+    if not any(isinstance(item, SecretRedactingFilter) for item in root.filters):
+        root.addFilter(redacting_filter)
+    handlers = [*root.handlers]
+    for logger in logging.Logger.manager.loggerDict.values():
+        if isinstance(logger, logging.Logger):
+            handlers.extend(logger.handlers)
+    for handler in handlers:
+        if not any(isinstance(item, SecretRedactingFilter) for item in handler.filters):
+            handler.addFilter(redacting_filter)

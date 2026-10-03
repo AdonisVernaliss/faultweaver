@@ -134,3 +134,20 @@ def test_logging_filter_redacts_structured_secrets() -> None:
 
     assert SecretRedactingFilter().filter(record) is True
     assert record.msg == {"password": REDACTED, "safe": "visible"}
+
+
+def test_validation_errors_do_not_echo_identity_secrets(app_client: TestClient) -> None:
+    engagement_id = create_engagement(app_client)
+
+    response = app_client.post(
+        f"/api/engagements/{engagement_id}/identities",
+        json={
+            "name": "Invalid synthetic identity",
+            "bearer_token": "synthetic-validation-secret",
+            "api_key_header": "X-API-Key",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "synthetic-validation-secret" not in response.text
+    assert REDACTED in response.text
