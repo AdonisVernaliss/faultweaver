@@ -57,11 +57,11 @@ check, and host to limit noise. Every affected exchange remains linked.
 | Check family | Informational observation | Candidate condition |
 | --- | --- | --- |
 | Response headers | Context-aware missing defensive headers; HSTS is considered only on HTTPS HTML | Missing CSP on an HTML response |
-| Cookies | Non-session cookie attribute context | Session/auth-like cookie without `HttpOnly`, or an HTTPS cookie without `Secure` |
+| Cookies | None | Session/auth-like cookie without `HttpOnly`, or an HTTPS cookie without `Secure` |
 | Disclosure | Version-bearing `Server` or `X-Powered-By` banner | A naturally occurring 5xx response containing a stack-trace marker |
 | Redirects | External origin redirect, explicitly not an open-redirect claim; canonical self-redirect | HTTPS-to-HTTP downgrade |
-| Forms | Form metadata and cross-origin context | Password form whose action uses HTTP |
-| Transport | Resource references and their source kind | HTTP resource referenced by an HTTPS page |
+| Forms | Cross-origin form action | Password form whose action uses HTTP |
+| Transport | None; resource references remain inventory metadata | HTTP resource referenced by an HTTPS page |
 | Cache policy | Authentication-sensitive URL or cookie context without an explicit `no-store` directive | None; application-specific cache behavior stays informational |
 | Content metadata | Internal filesystem path pattern, or sensitive-looking JSON field names without copying their values | None; content context requires manual review |
 
