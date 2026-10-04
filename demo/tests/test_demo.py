@@ -61,6 +61,7 @@ def test_demo_surface_is_deterministic_and_explicitly_vulnerable() -> None:
         status, headers, body = request(base_url, "/")
         config_status, config = json_request(base_url, "/api/public-config")
         error_status, _, error_body = request(base_url, "/debug/error")
+        _, _, sitemap = request(base_url, "/sitemap.xml", headers={"Host": "unsafe/<tag>"})
 
     page = body.decode()
     assert status == 200
@@ -75,6 +76,7 @@ def test_demo_surface_is_deterministic_and_explicitly_vulnerable() -> None:
     assert error_status == 500
     assert "Traceback (most recent call last)" in error_body.decode()
     assert "/srv/app/demo.py" in error_body.decode()
+    assert "unsafe/<tag>" not in sitemap.decode()
 
 
 def test_horizontal_and_admin_authorization_failures_are_reproducible() -> None:

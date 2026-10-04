@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+from collections import deque
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import ip_address
@@ -34,6 +36,7 @@ AUDIT_2026 = {
         {"action": "tenant.review", "actor": "admin"},
     ],
 }
+_SAFE_AUTHORITY = re.compile(r"^[A-Za-z0-9.:[\]-]{1,255}$")
 
 
 class DemoServer(ThreadingHTTPServer):
@@ -41,7 +44,7 @@ class DemoServer(ThreadingHTTPServer):
 
     def __init__(self, server_address: tuple[str, int]) -> None:
         super().__init__(server_address, DemoHandler)
-        self.request_log: list[tuple[str, str]] = []
+        self.request_log: deque[tuple[str, str]] = deque(maxlen=10_000)
 
 
 class DemoHandler(BaseHTTPRequestHandler):
@@ -85,10 +88,10 @@ class DemoHandler(BaseHTTPRequestHandler):
             self._text(
                 HTTPStatus.OK,
                 "User-agent: *\nDisallow: /api/admin/\nSitemap: "
-                f"http://{self.headers.get('Host', '127.0.0.1:8088')}/sitemap.xml\n",
+                f"http://{self._authority()}/sitemap.xml\n",
             )
         elif path == "/sitemap.xml":
-            host = self.headers.get("Host", "127.0.0.1:8088")
+            host = self._authority()
             urls = ("/", "/login", "/api/public-config", "/debug/error")
             body = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(
                 f"<url><loc>http://{host}{item}</loc></url>" for item in urls
@@ -111,7 +114,7 @@ class DemoHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             length = 0
-        if length > 4096:
+        if length < 0 or length > 4096:
             self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"detail": "request too large"})
             return
         form = parse_qs(self.rfile.read(length).decode("utf-8", errors="replace"))
@@ -195,6 +198,10 @@ class DemoHandler(BaseHTTPRequestHandler):
             if separator:
                 cookies[name] = value
         return USERS.get(cookies.get("session", ""))
+
+    def _authority(self) -> str:
+        value = self.headers.get("Host", "")
+        return value if _SAFE_AUTHORITY.fullmatch(value) else "127.0.0.1:8088"
 
     def _require_identity(self) -> dict[str, str] | None:
         identity = self._identity()
