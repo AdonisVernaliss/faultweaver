@@ -17,12 +17,12 @@ cleanup() {
   fi
 }
 
+trap cleanup EXIT HUP INT TERM
+
 if [ -z "$(compose ps --status running --quiet juice-shop)" ]; then
   started_by_runner=1
   compose up --detach --wait juice-shop
 fi
-
-trap cleanup EXIT HUP INT TERM
 
 cd "$repository_root"
 FAULTWEAVER_JUICE_SHOP_URL="http://127.0.0.1:$juice_shop_port" \
