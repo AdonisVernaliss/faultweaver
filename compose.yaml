@@ -28,5 +28,22 @@ services:
       api:
         condition: service_healthy
 
+  demo:
+    profiles: ["demo"]
+    build:
+      context: ./demo
+    ports:
+      - "127.0.0.1:8088:8088"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8088/health')"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+
 volumes:
   faultweaver-data:

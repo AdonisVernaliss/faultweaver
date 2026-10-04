@@ -1,6 +1,7 @@
 # Architecture
 
-Faultweaver is a local-first monorepo with two runtime services and one persistent data store.
+Faultweaver is a local-first monorepo with two core runtime services, one
+persistent data store, and an opt-in stateless demonstration target.
 
 ```text
 Browser
@@ -16,6 +17,11 @@ Browser
             -> finding, immutable evidence, operator note, and retest lifecycle
             -> ordered, operator-authored attack chain composition
             -> SQLite
+
+Optional local validation profile
+  -> deterministic, deliberately vulnerable demo SaaS
+       -> read-only tenant and audit fixtures
+       -> no outbound client or persistent state
 ```
 
 ## Backend boundaries
@@ -77,3 +83,7 @@ Replay credentials and imported request material remain in the local database. P
   command execution or external reference fetch is part of import.
 - Automated confirmation of vulnerabilities is outside this slice and will remain an explicit operator decision.
 - Evidence snapshots and lifecycle history never store replay-capable secret values.
+- The demo target is disabled by default, published only on host loopback, and
+  isolated from production persistence. Its non-loopback container bind requires
+  an explicit environment override supplied only by the loopback-published
+  Compose profile.

@@ -78,7 +78,7 @@ class DemoHandler(BaseHTTPRequestHandler):
             self._text(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 "Traceback (most recent call last):\n"
-                '  File "/srv/demo/app.py", line 173, in demo_error\n'
+                '  File "/srv/app/demo.py", line 173, in demo_error\n'
                 "RuntimeError: deterministic demonstration failure\n",
             )
         elif path == "/robots.txt":

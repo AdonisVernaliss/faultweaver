@@ -42,9 +42,11 @@ Faultweaver is pre-release software. The current vertical slice includes:
 - persist assessment runs, crawl state, requests, observations, candidates,
   findings, evidence, retests, Attack Chains, and history in SQLite;
 - upgrade fresh or existing pre-migration databases through packaged Alembic migrations.
+- run an opt-in, loopback-published deliberately vulnerable demo SaaS with
+  deterministic tenant data and authorization defects for local workflow validation.
 
-Reporting/export, credential encryption, and the deliberately vulnerable demo
-target remain later milestones.
+Reporting/export, credential encryption, and external lab compatibility remain
+later milestones.
 
 ## Architecture
 
@@ -100,8 +102,41 @@ Run the validated checks:
 
 ```bash
 make backend-lint backend-test
+make demo-lint demo-test
 make frontend-check frontend-test frontend-build
 ```
+
+## Deliberately vulnerable demo SaaS
+
+The repository includes **Northstar Billing**, an intentionally insecure,
+read-only local target for validating Faultweaver without contacting an external
+system. It has no outbound client and no persistent data. The host port is bound
+to loopback only, the container is read-only with dropped capabilities, and the
+service is disabled unless its Compose profile is requested.
+
+```bash
+docker compose --profile demo up --build
+```
+
+Open the demo directly at `http://127.0.0.1:8088`. From the Compose API, create
+scope for `http://demo:8088/` and use that same URL for the baseline assessment.
+For host-native backend development, run `python -m demo.app` and scope
+`http://127.0.0.1:8088/`.
+
+The public synthetic bearer identities are `demo-alice-token`,
+`demo-bob-token`, and `demo-admin-token`. Browser logins are documented on the
+demo sign-in page. These values are intentionally public fixtures and must never
+be reused outside the demo.
+
+The target contains two explicit authorization defects:
+
+- any authenticated tenant can read another tenant's numbered invoice;
+- any authenticated tenant can read the numbered administrator audit endpoint.
+
+It also exposes deterministic passive-baseline signals including missing
+defensive headers, a weak demo session cookie, a verbose natural error, an
+internal path marker, and a sensitive-looking JSON field name. See
+[Demo SaaS](docs/demo-saas.md) for the exact workflow and safety boundary.
 
 ## Baseline assessment safety model
 

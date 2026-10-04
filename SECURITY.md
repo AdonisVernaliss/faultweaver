@@ -5,3 +5,8 @@ Faultweaver is security testing software intended only for explicitly authorized
 Please do not disclose suspected vulnerabilities in public issues. Until a private disclosure channel is published, retain the report and contact the maintainers through the repository owner's private contact methods.
 
 Faultweaver redacts common secret-bearing headers and structured body fields in API responses, validation errors, logs, and workspace views by default. Local project databases intentionally retain identity credentials and replay material and must be protected accordingly.
+
+The optional Northstar Billing demo service is deliberately vulnerable. It is
+disabled by default and intended only for loopback local validation. Never
+publish its port to a LAN, public interface, shared environment, or production
+deployment.

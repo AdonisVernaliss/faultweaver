@@ -74,7 +74,7 @@ def test_demo_surface_is_deterministic_and_explicitly_vulnerable() -> None:
     assert config == {"environment": "demo", "api_token": "synthetic-placeholder"}
     assert error_status == 500
     assert "Traceback (most recent call last)" in error_body.decode()
-    assert "/srv/demo/app.py" in error_body.decode()
+    assert "/srv/app/demo.py" in error_body.decode()
 
 
 def test_horizontal_and_admin_authorization_failures_are_reproducible() -> None:
@@ -193,6 +193,7 @@ def test_faultweaver_workflow_against_demo(tmp_path: Path) -> None:
                 "headers.content-security-policy",
                 "cookies.session-flags",
                 "content.sensitive-field-names",
+                "disclosure.internal-path",
                 "disclosure.verbose-error",
             }.issubset(check_ids)
 
@@ -202,10 +203,14 @@ def test_faultweaver_workflow_against_demo(tmp_path: Path) -> None:
             invoice_request = next(
                 item for item in requests if item["path"] == "/api/invoices/1001"
             )
+            audit_request = next(
+                item for item in requests if item["path"] == "/api/admin/audit/2026"
+            )
             identity_ids = []
             for name, token in (
                 ("Demo Alice", "demo-alice-token"),
                 ("Demo Bob", "demo-bob-token"),
+                ("Demo Administrator", "demo-admin-token"),
             ):
                 identity = client.post(
                     f"/api/engagements/{engagement_id}/identities",
@@ -219,6 +224,12 @@ def test_faultweaver_workflow_against_demo(tmp_path: Path) -> None:
             )
             assert comparison.status_code == 201
             assert comparison.json()["candidate"]["category"] == "authorization"
+            admin_comparison = client.post(
+                f"/api/requests/{audit_request['id']}/compare",
+                json={"identity_a_id": identity_ids[0], "identity_b_id": identity_ids[2]},
+            )
+            assert admin_comparison.status_code == 201
+            assert admin_comparison.json()["candidate"]["category"] == "authorization"
             surface = client.get(
                 f"/api/engagements/{engagement_id}/attack-surface?source=crawler"
             ).json()
