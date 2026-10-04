@@ -61,7 +61,9 @@ def test_demo_surface_is_deterministic_and_explicitly_vulnerable() -> None:
         status, headers, body = request(base_url, "/")
         config_status, config = json_request(base_url, "/api/public-config")
         error_status, _, error_body = request(base_url, "/debug/error")
-        _, _, sitemap = request(base_url, "/sitemap.xml", headers={"Host": "unsafe/<tag>"})
+        _, _, sitemap = request(
+            base_url, "/sitemap.xml", headers={"Host": "unsafe/<tag>"}
+        )
 
     page = body.decode()
     assert status == 200
@@ -88,7 +90,9 @@ def test_horizontal_and_admin_authorization_failures_are_reproducible() -> None:
         bob_status, bob_invoice = json_request(
             base_url, "/api/invoices/1001", token="demo-bob-token"
         )
-        _, alice_list = json_request(base_url, "/api/invoices", token="demo-alice-token")
+        _, alice_list = json_request(
+            base_url, "/api/invoices", token="demo-alice-token"
+        )
         _, bob_list = json_request(base_url, "/api/invoices", token="demo-bob-token")
         bob_admin_status, bob_admin = json_request(
             base_url, "/api/admin/audit/2026", token="demo-bob-token"
@@ -187,7 +191,8 @@ def test_faultweaver_workflow_against_demo(tmp_path: Path) -> None:
             assert detail["status"] == "Completed"
             assert detail["failed_request_count"] == 0
             assert any(
-                item["state"] == "skipped" and item["canonical_url"].endswith(":9/outside")
+                item["state"] == "skipped"
+                and item["canonical_url"].endswith(":9/outside")
                 for item in detail["discoveries"]
             )
             check_ids = {item["check_id"] for item in detail["observations"]}
@@ -222,20 +227,28 @@ def test_faultweaver_workflow_against_demo(tmp_path: Path) -> None:
                 identity_ids.append(identity.json()["id"])
             comparison = client.post(
                 f"/api/requests/{invoice_request['id']}/compare",
-                json={"identity_a_id": identity_ids[0], "identity_b_id": identity_ids[1]},
+                json={
+                    "identity_a_id": identity_ids[0],
+                    "identity_b_id": identity_ids[1],
+                },
             )
             assert comparison.status_code == 201
             assert comparison.json()["candidate"]["category"] == "authorization"
             admin_comparison = client.post(
                 f"/api/requests/{audit_request['id']}/compare",
-                json={"identity_a_id": identity_ids[0], "identity_b_id": identity_ids[2]},
+                json={
+                    "identity_a_id": identity_ids[0],
+                    "identity_b_id": identity_ids[2],
+                },
             )
             assert admin_comparison.status_code == 201
             assert admin_comparison.json()["candidate"]["category"] == "authorization"
             surface = client.get(
                 f"/api/engagements/{engagement_id}/attack-surface?source=crawler"
             ).json()
-            assert any(item["path_template"] == "/api/invoices/1001" for item in surface)
+            assert any(
+                item["path_template"] == "/api/invoices/1001" for item in surface
+            )
 
         requested = list(demo_server.request_log)
 

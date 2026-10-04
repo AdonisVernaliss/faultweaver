@@ -55,7 +55,7 @@ class DemoHandler(BaseHTTPRequestHandler):
     def demo_server(self) -> DemoServer:
         return self.server  # type: ignore[return-value]
 
-    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+    def do_GET(self) -> None:
         path = urlsplit(self.path).path
         self.demo_server.request_log.append(("GET", path))
         if path == "/":
@@ -93,8 +93,9 @@ class DemoHandler(BaseHTTPRequestHandler):
         elif path == "/sitemap.xml":
             host = self._authority()
             urls = ("/", "/login", "/api/public-config", "/debug/error")
-            body = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(
-                f"<url><loc>http://{host}{item}</loc></url>" for item in urls
+            body = (
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                + "".join(f"<url><loc>http://{host}{item}</loc></url>" for item in urls)
             )
             self._send(HTTPStatus.OK, "application/xml; charset=utf-8", body.encode())
         elif path == "/assets/app.css":
@@ -104,7 +105,7 @@ class DemoHandler(BaseHTTPRequestHandler):
         else:
             self._json(HTTPStatus.NOT_FOUND, {"detail": "not found"})
 
-    def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+    def do_POST(self) -> None:
         path = urlsplit(self.path).path
         self.demo_server.request_log.append(("POST", path))
         if path != "/session":
@@ -115,19 +116,26 @@ class DemoHandler(BaseHTTPRequestHandler):
         except ValueError:
             length = 0
         if length < 0 or length > 4096:
-            self._json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"detail": "request too large"})
+            self._json(
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"detail": "request too large"}
+            )
             return
         form = parse_qs(self.rfile.read(length).decode("utf-8", errors="replace"))
         username = form.get("username", [""])[0]
         password = form.get("password", [""])[0]
         if PASSWORDS.get(username) != password:
-            self._html(HTTPStatus.UNAUTHORIZED, _login_page(error="Invalid demo credentials"))
+            self._html(
+                HTTPStatus.UNAUTHORIZED, _login_page(error="Invalid demo credentials")
+            )
             return
         self._send(
             HTTPStatus.SEE_OTHER,
             "text/plain; charset=utf-8",
             b"Continue to dashboard",
-            headers=[("Location", "/dashboard"), ("Set-Cookie", f"session={username}; Path=/")],
+            headers=[
+                ("Location", "/dashboard"),
+                ("Set-Cookie", f"session={username}; Path=/"),
+            ],
         )
 
     def log_message(self, format: str, *args: object) -> None:
@@ -136,9 +144,13 @@ class DemoHandler(BaseHTTPRequestHandler):
     def _dashboard(self) -> None:
         user = self._identity()
         if user is None:
-            self._html(HTTPStatus.UNAUTHORIZED, _login_page(error="Sign in to continue"))
+            self._html(
+                HTTPStatus.UNAUTHORIZED, _login_page(error="Sign in to continue")
+            )
             return
-        invoices = [item for item in INVOICES.values() if item["owner_id"] == user["id"]]
+        invoices = [
+            item for item in INVOICES.values() if item["owner_id"] == user["id"]
+        ]
         rows = "".join(
             f'<li><a href="/api/invoices/{item["id"]}">Invoice {item["id"]}</a></li>'
             for item in invoices
@@ -163,7 +175,11 @@ class DemoHandler(BaseHTTPRequestHandler):
             return
         self._json(
             HTTPStatus.OK,
-            {"invoices": [item for item in INVOICES.values() if item["owner_id"] == user["id"]]},
+            {
+                "invoices": [
+                    item for item in INVOICES.values() if item["owner_id"] == user["id"]
+                ]
+            },
         )
 
     def _invoice_detail(self, path: str) -> None:
@@ -209,7 +225,9 @@ class DemoHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.UNAUTHORIZED, {"detail": "authentication required"})
         return identity
 
-    def _html(self, status: HTTPStatus, body: str, *, cookie: str | None = None) -> None:
+    def _html(
+        self, status: HTTPStatus, body: str, *, cookie: str | None = None
+    ) -> None:
         headers = [("Set-Cookie", cookie)] if cookie else None
         self._send(status, "text/html; charset=utf-8", body.encode(), headers=headers)
 
@@ -338,8 +356,12 @@ def create_server(host: str, port: int) -> DemoServer:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the local Faultweaver demo SaaS")
-    parser.add_argument("--host", default=os.getenv("FAULTWEAVER_DEMO_HOST", "127.0.0.1"))
-    parser.add_argument("--port", type=int, default=int(os.getenv("FAULTWEAVER_DEMO_PORT", "8088")))
+    parser.add_argument(
+        "--host", default=os.getenv("FAULTWEAVER_DEMO_HOST", "127.0.0.1")
+    )
+    parser.add_argument(
+        "--port", type=int, default=int(os.getenv("FAULTWEAVER_DEMO_PORT", "8088"))
+    )
     args = parser.parse_args()
     allow_non_loopback = os.getenv("FAULTWEAVER_DEMO_ALLOW_NON_LOOPBACK") == "1"
     try:

@@ -4,15 +4,15 @@ backend-install:
 	uv sync --project backend --all-groups
 
 backend-test:
-	uv run --project backend pytest -q
+	uv run --project backend python -m pytest -q backend/tests
 
 backend-lint:
-	uv run --project backend ruff check .
-	uv run --project backend ruff format --check .
+	uv run --project backend ruff check backend
+	uv run --project backend ruff format --check backend
 
 demo-lint:
-	uv run --project backend ruff check --config backend/pyproject.toml demo
-	uv run --project backend ruff format --check --config backend/pyproject.toml demo
+	uv run --project backend ruff check demo
+	uv run --project backend ruff format --check demo
 
 demo-test:
 	uv run --project backend python -m pytest -q demo/tests
