@@ -46,6 +46,9 @@ Faultweaver is pre-release software. The current vertical slice includes:
   deterministic tenant data and authorization defects for local workflow validation.
 - validate bounded discovery, HAR/cURL ingestion, replay, identity comparison,
   findings/evidence, and responsive UI behavior against stock OWASP Juice Shop 20.2.0.
+- validate classic HTML form discovery, URL-encoded request handling, session
+  replay, response comparison, findings/evidence, and responsive UI behavior
+  against stock Damn Vulnerable Web Application 2.5.
 
 Reporting/export, credential encryption, and additional external lab
 compatibility remain later milestones.
@@ -161,6 +164,28 @@ non-JavaScript, WebSocket HAR records are not imported into the HTTP model, and
 the validation does not automate challenges or exploit access-control defects.
 See [Juice Shop compatibility](docs/compatibility/juice-shop.md) for the exact
 image digest, observed matrix, workflow, and limitations.
+
+## Damn Vulnerable Web Application compatibility
+
+Faultweaver has been validated locally against stock DVWA 2.5 for bounded
+anonymous discovery, classic HTML form metadata, real HAR and cURL GET/POST
+ingestion, URL-encoded redaction, cookie-authenticated replay, HTML response
+comparison, authorization-matrix evidence, findings/evidence, restart
+persistence, and responsive browser workflows.
+
+The pinned compatibility service publishes only on `127.0.0.1:4280`; its
+database is private to the dedicated Compose network and all resources are
+ephemeral. Run the isolated workflow with:
+
+```bash
+make compatibility-dvwa
+```
+
+This is not a claim of full DVWA support. The crawler does not authenticate or
+submit forms, no vulnerability module is exploited, and no artificial Attack
+Chain or fixed-state retest is created. See
+[DVWA compatibility](docs/compatibility/dvwa.md) for the exact image digests,
+observed matrix, workflow, and limitations.
 
 ## Baseline assessment safety model
 

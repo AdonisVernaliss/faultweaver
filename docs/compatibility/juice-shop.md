@@ -108,7 +108,7 @@ and evidence.
   HTTP and HTTPS transactions. Binary response bodies are represented as
   omitted rather than copied into operator-safe views.
 - Compatibility is established only for Juice Shop 20.2.0 and the workflows in
-  this document. DVWA, WebGoat, and Mutillidae II remain unvalidated.
+  this document. WebGoat and Mutillidae II remain unvalidated.
 - The real identity comparison exercised expected per-user behavior and did not
   generate a Candidate. This is the intended conservative outcome.
 - Replay credentials and captured traffic remain unencrypted at rest in the
