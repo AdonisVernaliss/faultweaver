@@ -1,0 +1,17 @@
+services:
+  juice-shop:
+    image: bkimminich/juice-shop:v20.2.0@sha256:8739101ade29358abb5469ee66ae78e582c97ed0a5543a4ad102e5fa5193526b
+    pull_policy: missing
+    ports:
+      - "127.0.0.1:${FAULTWEAVER_JUICE_SHOP_PORT:-3008}:3000"
+    restart: "no"
+    healthcheck:
+      test:
+        - CMD
+        - /nodejs/bin/node
+        - -e
+        - fetch('http://127.0.0.1:3000/rest/admin/application-version').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
