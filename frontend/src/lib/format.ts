@@ -24,7 +24,8 @@ export function sourceLabel(source: string): string {
     curl: 'cURL',
     openapi: 'OPENAPI',
     manual: 'MANUAL',
-    replay: 'REPLAY'
+    replay: 'REPLAY',
+    crawler: 'CRAWLER'
   }[source] ?? source.toUpperCase();
 }
 

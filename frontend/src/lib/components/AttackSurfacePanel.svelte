@@ -28,7 +28,8 @@
     return {
       observed_only: 'Observed only',
       declared_only: 'Declared only',
-      observed_and_declared: 'Observed + declared'
+      observed_and_declared: 'Observed + declared',
+      discovered_only: 'Discovered only'
     }[state];
   }
 
@@ -40,9 +41,9 @@
 </script>
 
 <section class="workspace-page surface-page" aria-labelledby="surface-title">
-  <header class="workspace-header"><div><span class="eyebrow">NORMALIZED INVENTORY</span><h1 id="surface-title">Attack Surface</h1><p>Observed traffic and declared OpenAPI operations, grouped conservatively.</p></div><button class="button primary" type="button" onclick={onimport}>＋ Import Traffic</button></header>
+  <header class="workspace-header"><div><span class="eyebrow">NORMALIZED INVENTORY</span><h1 id="surface-title">Attack Surface</h1><p>Crawler discoveries, observed traffic, and declared OpenAPI operations, grouped conservatively.</p></div><button class="button primary" type="button" onclick={onimport}>＋ Import Traffic</button></header>
   <div class="surface-summary"><span><small>ENDPOINTS</small><strong>{endpoints.length}</strong></span><span><small>OBSERVED</small><strong>{endpoints.filter((item) => item.observed_request_count > 0).length}</strong></span><span><small>DECLARED</small><strong>{endpoints.filter((item) => item.declared_by_openapi).length}</strong></span><span><small>IMPORT BATCHES</small><strong>{batches.length}</strong></span></div>
-  <div class="filter-bar"><label><span>Search</span><input bind:value={search} placeholder="Method, host, or path" /></label><label><span>State</span><select bind:value={stateFilter}><option value="">All states</option><option value="observed_only">Observed only</option><option value="declared_only">Declared only</option><option value="observed_and_declared">Observed + declared</option></select></label><label><span>Source</span><select bind:value={sourceFilter}><option value="">All sources</option><option value="raw_import">Raw HTTP</option><option value="har">HAR</option><option value="curl">cURL</option><option value="openapi">OpenAPI</option></select></label></div>
+  <div class="filter-bar"><label><span>Search</span><input bind:value={search} placeholder="Method, host, or path" /></label><label><span>State</span><select bind:value={stateFilter}><option value="">All states</option><option value="discovered_only">Discovered only</option><option value="observed_only">Observed only</option><option value="declared_only">Declared only</option><option value="observed_and_declared">Observed + declared</option></select></label><label><span>Source</span><select bind:value={sourceFilter}><option value="">All sources</option><option value="crawler">Crawler</option><option value="raw_import">Raw HTTP</option><option value="har">HAR</option><option value="curl">cURL</option><option value="openapi">OpenAPI</option></select></label></div>
 
   <div class="surface-workspace">
     <div class="surface-list" role="list" aria-label="Attack surface endpoints">

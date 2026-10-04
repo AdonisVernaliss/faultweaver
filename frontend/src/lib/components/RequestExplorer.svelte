@@ -58,7 +58,7 @@
       <input bind:value={filter} placeholder="Filter method, host, path, or status" />
       <kbd>⌘K</kbd>
     </label>
-    <label class="source-filter"><span class="sr-only">Filter by import source</span><select bind:value={sourceFilter}><option value="">All sources</option><option value="raw_import">Raw HTTP</option><option value="har">HAR</option><option value="curl">cURL</option><option value="openapi">OpenAPI-generated</option><option value="replay">Replay</option></select></label>
+    <label class="source-filter"><span class="sr-only">Filter by import source</span><select bind:value={sourceFilter}><option value="">All sources</option><option value="crawler">Crawler</option><option value="raw_import">Raw HTTP</option><option value="har">HAR</option><option value="curl">cURL</option><option value="openapi">OpenAPI-generated</option><option value="replay">Replay</option></select></label>
     <div class="toolbar-stats">
       <span><strong>{filtered.length}</strong> visible</span>
       <span><strong>{requests.filter((request) => request.source === 'replay').length}</strong> replays</span>

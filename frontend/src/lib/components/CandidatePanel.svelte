@@ -5,12 +5,14 @@
   let {
     engagementId,
     candidates,
+    focusId = '',
     onchanged,
     onpromoted,
     onevidence
   }: {
     engagementId: string;
     candidates: Candidate[];
+    focusId?: string;
     onchanged: () => Promise<void>;
     onpromoted: (finding: Finding) => void;
     onevidence: (evidence: Evidence) => void;
@@ -27,6 +29,10 @@
   let reproduction = $state('');
 
   let selected = $derived(candidates.find((item) => item.id === selectedId) ?? candidates[0]);
+
+  $effect(() => {
+    if (focusId && focusId !== selectedId) selectedId = focusId;
+  });
 
   async function review(decision: 'False Positive' | 'Informational' | 'Accepted') {
     if (!selected) return;
@@ -61,8 +67,11 @@
       const evidence = await api<Evidence>(`engagements/${engagementId}/evidence`, {
         method: 'POST',
         body: JSON.stringify({
-          evidence_type: 'Response Comparison', title: `${selected.title} comparison`,
-          source_comparison_id: selected.comparison_id, source_candidate_id: selected.id,
+          evidence_type: selected.comparison_id ? 'Response Comparison' : 'HTTP Request/Response',
+          title: selected.comparison_id ? `${selected.title} comparison` : `${selected.title} request`,
+          source_comparison_id: selected.comparison_id,
+          source_exchange_id: selected.comparison_id ? undefined : selected.original_exchange_id,
+          source_candidate_id: selected.id,
           finding_id: selected.finding_id
         })
       });
@@ -94,9 +103,9 @@
     {#if selected}
       <article class="report-detail">
         <header class="report-heading"><div><span class="eyebrow">{selected.category}</span><h2>{selected.title}</h2><code>{selected.target.method} {selected.target.host}{selected.target.path}</code></div><span class="candidate-pill candidate">{selected.review_decision ?? selected.status}</span></header>
-        <div class="context-grid"><span><small>CONFIDENCE</small><strong>{selected.confidence}</strong></span><span><small>ORIGINAL</small><strong>{selected.original_exchange_id.slice(0, 8)}</strong></span><span><small>COMPARISON</small><strong>{selected.comparison_id.slice(0, 8)}</strong></span><span><small>CREATED</small><strong>{new Date(selected.created_at).toLocaleString()}</strong></span></div>
+        <div class="context-grid"><span><small>CONFIDENCE</small><strong>{selected.confidence}</strong></span><span><small>ORIGINAL</small><strong>{selected.original_exchange_id.slice(0, 8)}</strong></span><span><small>{selected.comparison_id ? 'COMPARISON' : 'CHECK'}</small><strong>{selected.comparison_id?.slice(0, 8) ?? selected.check_id ?? 'Baseline'}</strong></span><span><small>CREATED</small><strong>{new Date(selected.created_at).toLocaleString()}</strong></span></div>
         <section class="report-section"><h3>Reasoning</h3>{#each selected.reasoning as reason}<p>{reason}</p>{/each}</section>
-        <section class="report-section"><h3>Identity replay evidence</h3><div class="replay-summary">{#each selected.response_statuses as response}<div><span>{selected.identities.find((identity) => identity.id === response.identity_id)?.name ?? 'Identity'}</span><strong>HTTP {response.status ?? '—'}</strong><code>{response.exchange_id.slice(0, 8)}</code></div>{/each}</div><button class="button secondary" type="button" onclick={saveEvidence} disabled={busy}>Save comparison as evidence</button></section>
+        <section class="report-section"><h3>{selected.comparison_id ? 'Identity replay evidence' : 'Supporting request evidence'}</h3>{#if selected.comparison_id}<div class="replay-summary">{#each selected.response_statuses as response}<div><span>{selected.identities.find((identity) => identity.id === response.identity_id)?.name ?? 'Identity'}</span><strong>HTTP {response.status ?? '—'}</strong><code>{response.exchange_id.slice(0, 8)}</code></div>{/each}</div>{:else}<p>{selected.affected_exchange_ids.length} crawler request{selected.affected_exchange_ids.length === 1 ? '' : 's'} support this conservative signal. Suggested severity: {selected.suggested_severity ?? 'Not set'}.</p>{/if}<button class="button secondary" type="button" onclick={saveEvidence} disabled={busy}>Save {selected.comparison_id ? 'comparison' : 'request'} as evidence</button></section>
         {#if selected.operator_notes.length}<section class="report-section"><h3>Operator notes</h3>{#each selected.operator_notes as item}<div class="timeline-item"><strong>{item.author_label}</strong><time>{new Date(item.created_at).toLocaleString()}</time><p>{item.body}</p></div>{/each}</section>{/if}
 
         {#if selected.status !== 'promoted'}

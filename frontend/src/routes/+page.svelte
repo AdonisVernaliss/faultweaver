@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
 
   import { api } from '../lib/api';
+  import AssessmentPanel from '../lib/components/AssessmentPanel.svelte';
   import AttackChainPanel from '../lib/components/AttackChainPanel.svelte';
   import AttackSurfacePanel from '../lib/components/AttackSurfacePanel.svelte';
   import AuthorizationMatrix from '../lib/components/AuthorizationMatrix.svelte';
@@ -12,6 +13,7 @@
   import FindingPanel from '../lib/components/FindingPanel.svelte';
   import IdentityPanel from '../lib/components/IdentityPanel.svelte';
   import ImportDialog from '../lib/components/ImportDialog.svelte';
+  import NewAssessmentDialog from '../lib/components/NewAssessmentDialog.svelte';
   import RequestExplorer from '../lib/components/RequestExplorer.svelte';
   import RetestPanel from '../lib/components/RetestPanel.svelte';
   import ScopeDialog from '../lib/components/ScopeDialog.svelte';
@@ -19,6 +21,7 @@
   import type {
     AttackChain,
     AttackSurfaceEndpoint,
+    AssessmentRun,
     Engagement,
     EngagementDetail,
     AuthorizationMatrix as Matrix,
@@ -49,10 +52,13 @@
   let attackChains = $state<AttackChain[]>([]);
   let attackSurface = $state<AttackSurfaceEndpoint[]>([]);
   let importBatches = $state<ImportBatch[]>([]);
+  let assessments = $state<AssessmentRun[]>([]);
   let focusedFindingId = $state('');
   let focusedAttackChainId = $state('');
+  let focusedAssessmentId = $state('');
+  let focusedCandidateId = $state('');
   let selected = $state<ExchangeDetail | null>(null);
-  let activeView = $state<'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains'>('requests');
+  let activeView = $state<'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains'>('assessments');
   let loading = $state(true);
   let loadingDetail = $state(false);
   let replaying = $state(false);
@@ -60,6 +66,7 @@
   let scopeDialog = $state(false);
   let importDialog = $state(false);
   let comparisonDialog = $state(false);
+  let assessmentDialog = $state(false);
   let error = $state('');
   let notice = $state('');
 
@@ -90,9 +97,10 @@
     error = '';
     selected = null;
     try {
-      const [detail, scopeRules, traffic, surfaceItems, batchItems, identityContexts, authMatrix, candidateItems, findingItems, evidenceItems, retestItems, chainItems, archivedChainItems] = await Promise.all([
+      const [detail, scopeRules, assessmentItems, traffic, surfaceItems, batchItems, identityContexts, authMatrix, candidateItems, findingItems, evidenceItems, retestItems, chainItems, archivedChainItems] = await Promise.all([
         api<EngagementDetail>(`engagements/${id}`),
         api<ScopeRule[]>(`engagements/${id}/scopes`),
+        api<AssessmentRun[]>(`engagements/${id}/assessments`),
         api<ExchangeList>(`engagements/${id}/requests`),
         api<AttackSurfaceEndpoint[]>(`engagements/${id}/attack-surface`),
         api<ImportBatch[]>(`engagements/${id}/imports`),
@@ -107,6 +115,7 @@
       ]);
       engagement = detail;
       scopes = scopeRules;
+      assessments = assessmentItems;
       requests = traffic.items;
       attackSurface = surfaceItems;
       importBatches = batchItems;
@@ -137,6 +146,15 @@
       api<AttackSurfaceEndpoint[]>(`engagements/${engagement.id}/attack-surface`),
       api<ImportBatch[]>(`engagements/${engagement.id}/imports`)
     ]);
+  }
+
+  async function refreshAssessments() {
+    if (!engagement) return;
+    assessments = await api<AssessmentRun[]>(`engagements/${engagement.id}/assessments`);
+  }
+
+  async function refreshAssessmentArtifacts() {
+    await Promise.all([refreshAssessments(), refreshRequests(), refreshImports(), refreshAnalysis()]);
   }
 
   async function refreshIdentities() {
@@ -249,6 +267,16 @@
     activeView = 'attack-chains';
   }
 
+  function openCandidate(id: string) {
+    focusedCandidateId = id;
+    activeView = 'candidates';
+  }
+
+  function openAssessmentRequest(id: string) {
+    activeView = 'requests';
+    void selectRequest(id);
+  }
+
   function openEvidence(id: string) {
     activeView = 'requests';
     void selectRequest(id);
@@ -264,6 +292,14 @@
     scopes = [...scopes, scope];
     scopeDialog = false;
     showNotice('Authorized scope added');
+  }
+
+  async function createdAssessment(run: AssessmentRun) {
+    focusedAssessmentId = run.id;
+    assessments = [run, ...assessments.filter((item) => item.id !== run.id)];
+    assessmentDialog = false;
+    activeView = 'assessments';
+    showNotice(`${run.display_id} started with bounded anonymous requests`);
   }
 
   async function importedTraffic(result: ImportResult | Exchange) {
@@ -300,6 +336,7 @@
   <Sidebar
     {engagement}
     requestCount={requests.length}
+    assessmentCount={assessments.length}
     identityCount={identities.length}
     candidateCount={candidates.length}
     findingCount={findings.length}
@@ -369,7 +406,9 @@
         </button>
       </section>
 
-      {#if activeView === 'requests'}
+      {#if activeView === 'assessments'}
+        <AssessmentPanel engagementId={engagement.id} runs={assessments} focusId={focusedAssessmentId} onnew={() => (assessmentDialog = true)} onchanged={refreshAssessmentArtifacts} onrequest={openAssessmentRequest} oncandidate={openCandidate} />
+      {:else if activeView === 'requests'}
         <RequestExplorer
           {requests}
           {selected}
@@ -389,7 +428,7 @@
       {:else if activeView === 'matrix'}
         <AuthorizationMatrix {matrix} onopen={openEvidence} />
       {:else if activeView === 'candidates'}
-        <CandidatePanel engagementId={engagement.id} {candidates} onchanged={refreshAnalysis} onpromoted={promotedFinding} onevidence={savedEvidence} />
+        <CandidatePanel engagementId={engagement.id} {candidates} focusId={focusedCandidateId} onchanged={refreshAnalysis} onpromoted={promotedFinding} onevidence={savedEvidence} />
       {:else if activeView === 'findings'}
         <FindingPanel engagementId={engagement.id} {findings} {evidence} {attackChains} focusId={focusedFindingId} onchanged={refreshLifecycle} onchainschanged={refreshChainsAndFindings} onevidence={savedEvidence} onopenchain={openAttackChain} />
       {:else if activeView === 'evidence'}
@@ -443,4 +482,7 @@
     oncompared={compared}
     onevidence={savedEvidence}
   />
+{/if}
+{#if assessmentDialog && engagement}
+  <NewAssessmentDialog engagementId={engagement.id} initialTarget={scopes[0] ? scopeUrl(scopes[0]) : 'https://example.test/'} onclose={() => (assessmentDialog = false)} oncreated={createdAssessment} />
 {/if}

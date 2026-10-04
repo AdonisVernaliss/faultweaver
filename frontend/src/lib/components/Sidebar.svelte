@@ -3,6 +3,7 @@
 
   let {
     engagement,
+    assessmentCount,
     requestCount,
     attackSurfaceCount,
     identityCount,
@@ -16,6 +17,7 @@
     oncreate
   }: {
     engagement: EngagementDetail | null;
+    assessmentCount: number;
     requestCount: number;
     attackSurfaceCount: number;
     identityCount: number;
@@ -24,8 +26,8 @@
     evidenceCount: number;
     retestCount: number;
     attackChainCount: number;
-    activeView: 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains';
-    onview: (view: 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains') => void;
+    activeView: 'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains';
+    onview: (view: 'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains') => void;
     oncreate: () => void;
   } = $props();
 
@@ -52,6 +54,9 @@
   </div>
 
   <nav aria-label="Engagement workspace">
+    <button aria-label="Assessment Runs" class:active={activeView === 'assessments'} class="nav-item" type="button" onclick={() => onview('assessments')} aria-current={activeView === 'assessments' ? 'page' : undefined}>
+      <span class="nav-glyph">⌾</span><span>Assessments</span><em>{assessmentCount}</em>
+    </button>
     <button aria-label="Requests" class:active={activeView === 'requests'} class="nav-item" type="button" onclick={() => onview('requests')} aria-current={activeView === 'requests' ? 'page' : undefined}>
       <span class="nav-glyph">↗</span><span>Requests</span><em>{requestCount}</em>
     </button>

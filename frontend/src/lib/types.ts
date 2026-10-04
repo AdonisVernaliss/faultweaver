@@ -36,10 +36,15 @@ export interface Exchange {
   identity_id: string | null;
   import_batch_id: string | null;
   endpoint_id: string | null;
+  assessment_run_id: string | null;
+  discovered_from_exchange_id: string | null;
+  crawl_depth: number | null;
+  discovery_kind: string | null;
+  crawl_error: string | null;
   source_entry_index: number | null;
   auth_source: 'original' | 'identity';
   operator_modified: boolean;
-  source: 'raw_import' | 'har' | 'curl' | 'openapi' | 'manual' | 'replay';
+  source: 'raw_import' | 'har' | 'curl' | 'openapi' | 'manual' | 'replay' | 'crawler';
   method: string;
   url: string;
   host: string;
@@ -132,7 +137,7 @@ export interface AttackSurfaceEndpoint {
   sources: string[];
   observed_request_count: number;
   declared_by_openapi: boolean;
-  state: 'observed_only' | 'declared_only' | 'observed_and_declared';
+  state: 'observed_only' | 'declared_only' | 'observed_and_declared' | 'discovered_only';
   metadata: {
     operation_id?: string | null;
     summary?: string | null;
@@ -141,6 +146,7 @@ export interface AttackSurfaceEndpoint {
     request_content_types?: string[];
     responses?: Record<string, { content_types?: string[] }>;
     security?: { name?: string; kind?: string; location?: string | null }[];
+    crawler_discovery?: { assessment_runs?: string[]; kinds?: string[] };
   };
   created_at: string;
   updated_at: string;
@@ -187,8 +193,13 @@ export interface ResponseDiff {
 export interface Candidate {
   id: string;
   engagement_id: string;
-  comparison_id: string;
+  comparison_id: string | null;
   original_exchange_id: string;
+  assessment_run_id: string | null;
+  endpoint_id: string | null;
+  check_id: string | null;
+  suggested_severity: Severity | null;
+  affected_exchange_ids: string[];
   supporting_replay_ids: string[];
   title: string;
   category: string;
@@ -209,6 +220,101 @@ export interface Candidate {
   operator_notes: OperatorNote[];
   created_at: string;
   updated_at: string;
+}
+
+export type AssessmentStatus = 'Pending' | 'Running' | 'Completed' | 'Stopped' | 'Failed';
+
+export interface AssessmentRun {
+  id: string;
+  engagement_id: string;
+  display_id: string;
+  target_url: string;
+  status: AssessmentStatus;
+  max_pages: number;
+  max_depth: number;
+  max_requests: number;
+  requests_per_second: number;
+  concurrency: number;
+  request_timeout_seconds: number;
+  max_response_bytes: number;
+  max_query_variants_per_path: number;
+  inspect_site_metadata: boolean;
+  stop_requested: boolean;
+  request_count: number;
+  page_count: number;
+  resource_count: number;
+  endpoint_count: number;
+  observation_count: number;
+  candidate_count: number;
+  failed_request_count: number;
+  queued_count: number;
+  current_depth: number;
+  current_url: string | null;
+  warnings: string[];
+  stop_reason: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+}
+
+export interface CrawlDiscovery {
+  id: string;
+  parent_exchange_id: string | null;
+  requested_exchange_id: string | null;
+  url: string;
+  canonical_url: string;
+  depth: number;
+  kind: string;
+  state: 'discovered' | 'queued' | 'requested' | 'skipped' | 'failed';
+  reason: string | null;
+}
+
+export interface CrawlForm {
+  id: string;
+  exchange_id: string;
+  action_url: string;
+  method: string;
+  enctype: string;
+  fields: { name: string; type: string; hidden: boolean; has_value: boolean }[];
+}
+
+export interface BaselineObservation {
+  id: string;
+  exchange_id: string | null;
+  endpoint_id: string | null;
+  candidate_id: string | null;
+  check_id: string;
+  title: string;
+  description: string;
+  reason: string;
+  confidence: string;
+  classification: 'Informational' | 'Candidate';
+  suggested_severity: Severity;
+  occurrence_count: number;
+  affected_exchange_ids: string[];
+  details: Record<string, unknown>;
+}
+
+export interface AssessmentDetail extends AssessmentRun {
+  discoveries: CrawlDiscovery[];
+  forms: CrawlForm[];
+  observations: BaselineObservation[];
+  request_ids: string[];
+  candidate_ids: string[];
+}
+
+export interface AssessmentCreate {
+  target_url: string;
+  max_pages: number;
+  max_depth: number;
+  max_requests: number;
+  requests_per_second: number;
+  concurrency: number;
+  request_timeout_seconds: number;
+  max_response_bytes: number;
+  max_query_variants_per_path: number;
+  inspect_site_metadata: boolean;
 }
 
 export interface OperatorNote {
