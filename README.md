@@ -44,9 +44,11 @@ Faultweaver is pre-release software. The current vertical slice includes:
 - upgrade fresh or existing pre-migration databases through packaged Alembic migrations.
 - run an opt-in, loopback-published deliberately vulnerable demo SaaS with
   deterministic tenant data and authorization defects for local workflow validation.
+- validate bounded discovery, HAR/cURL ingestion, replay, identity comparison,
+  findings/evidence, and responsive UI behavior against stock OWASP Juice Shop 20.2.0.
 
-Reporting/export, credential encryption, and external lab compatibility remain
-later milestones.
+Reporting/export, credential encryption, and additional external lab
+compatibility remain later milestones.
 
 ## Architecture
 
@@ -104,6 +106,7 @@ Run the validated checks:
 make backend-lint backend-test
 make demo-lint demo-test
 make frontend-check frontend-test frontend-build
+make compatibility-juice-shop
 ```
 
 ## Deliberately vulnerable demo SaaS
@@ -137,6 +140,27 @@ It also exposes deterministic passive-baseline signals including missing
 defensive headers, a weak demo session cookie, a verbose natural error, an
 internal path marker, and a sensitive-looking JSON field name. See
 [Demo SaaS](docs/demo-saas.md) for the exact workflow and safety boundary.
+
+## OWASP Juice Shop compatibility
+
+Faultweaver has been validated locally against unmodified OWASP Juice Shop
+20.2.0 for bounded baseline discovery, real HAR and cURL ingestion, Request
+Explorer and Attack Surface provenance, normal cookie-authenticated replay,
+identity-aware comparison, authorization-matrix evidence, findings/evidence,
+and responsive browser workflows.
+
+The pinned compatibility service publishes only on `127.0.0.1:3008` and remains
+separate from the production Compose services. Run the isolated workflow with:
+
+```bash
+make compatibility-juice-shop
+```
+
+This is not a claim of full Juice Shop support. The crawler remains deliberately
+non-JavaScript, WebSocket HAR records are not imported into the HTTP model, and
+the validation does not automate challenges or exploit access-control defects.
+See [Juice Shop compatibility](docs/compatibility/juice-shop.md) for the exact
+image digest, observed matrix, workflow, and limitations.
 
 ## Baseline assessment safety model
 
