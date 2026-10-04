@@ -28,6 +28,15 @@ class HttpExchange(Base):
     endpoint_id: Mapped[str | None] = mapped_column(
         ForeignKey("attack_surface_endpoints.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    assessment_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("assessment_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    discovered_from_exchange_id: Mapped[str | None] = mapped_column(
+        ForeignKey("http_exchanges.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    crawl_depth: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    discovery_kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    crawl_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_entry_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     auth_source: Mapped[str] = mapped_column(String(24), default="original")
     operator_modified: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -48,7 +57,9 @@ class HttpExchange(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     engagement: Mapped[Engagement] = relationship(back_populates="exchanges")
-    parent: Mapped[HttpExchange | None] = relationship(remote_side=[id])
+    parent: Mapped[HttpExchange | None] = relationship(
+        remote_side=[id], foreign_keys=[parent_exchange_id]
+    )
     identity: Mapped[Identity | None] = relationship()
 
 

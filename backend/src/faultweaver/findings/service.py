@@ -16,6 +16,7 @@ def allocate_display_id(session: Session, engagement_id: str, kind: str) -> tupl
         "retest": ("next_retest", "RT"),
         "attack_chain": ("next_attack_chain", "AC"),
         "import": ("next_import", "IMP"),
+        "assessment": ("next_assessment", "RUN"),
     }[kind]
     number = getattr(sequence, column)
     setattr(sequence, column, number + 1)

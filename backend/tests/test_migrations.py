@@ -21,8 +21,12 @@ def test_migrations_create_a_fresh_database(tmp_path: Path) -> None:
         "attack_chain_steps",
         "attack_chains",
         "attack_surface_endpoints",
+        "assessment_runs",
+        "baseline_observations",
         "candidate_replays",
         "candidates",
+        "crawl_discoveries",
+        "crawl_forms",
         "engagements",
         "engagement_sequences",
         "evidence",
@@ -38,7 +42,7 @@ def test_migrations_create_a_fresh_database(tmp_path: Path) -> None:
         "scope_rules",
     }
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
 
 
 def test_baseline_adopts_the_existing_schema_without_losing_data(tmp_path: Path) -> None:
@@ -57,7 +61,7 @@ def test_baseline_adopts_the_existing_schema_without_losing_data(tmp_path: Path)
         preserved = session.get(Engagement, "legacy-engagement")
         assert preserved is not None
         assert preserved.name == "Preserved engagement"
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
         anonymous_count = session.scalar(
             text(
                 "SELECT count(*) FROM identities "
@@ -88,7 +92,7 @@ def test_0002_upgrades_to_latest_without_losing_data(tmp_path: Path) -> None:
 
     with Session(engine) as session:
         assert session.get(Engagement, "v2-engagement") is not None
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
         assert (
             session.scalar(
                 text(
@@ -125,7 +129,7 @@ def test_0003_upgrades_to_latest_without_losing_sequence_data(tmp_path: Path) ->
             )
         ).one()
         assert sequence == (7, 9, 3, 1, 1)
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
 
 
 def test_0004_upgrades_to_latest_and_backfills_attack_surface(tmp_path: Path) -> None:
@@ -175,4 +179,34 @@ def test_0004_upgrades_to_latest_and_backfills_attack_surface(tmp_path: Path) ->
         assert sequence == (7, 9, 3, 4, 1)
         assert endpoint == ("GET", "example.test", "/api/users/17")
         assert endpoint_id is not None
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
+
+
+def test_0005_upgrades_to_latest_and_preserves_existing_candidates(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'version-five.db'}"
+    engine = create_engine(database_url)
+    upgrade_database(database_url, "0005")
+    with Session(engine) as session:
+        session.add(Engagement(id="v5-engagement", name="Version five engagement"))
+        session.execute(
+            text(
+                "INSERT INTO engagement_sequences "
+                "(engagement_id, next_finding, next_evidence, next_retest, "
+                "next_attack_chain, next_import) "
+                "VALUES ('v5-engagement', 2, 3, 4, 5, 6)"
+            )
+        )
+        session.commit()
+
+    upgrade_database(database_url)
+
+    with Session(engine) as session:
+        sequence = session.execute(
+            text(
+                "SELECT next_finding, next_evidence, next_retest, next_attack_chain, "
+                "next_import, next_assessment FROM engagement_sequences "
+                "WHERE engagement_id = 'v5-engagement'"
+            )
+        ).one()
+        assert sequence == (2, 3, 4, 5, 6, 1)
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0006"

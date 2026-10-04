@@ -59,12 +59,21 @@ class Candidate(Base):
     engagement_id: Mapped[str] = mapped_column(
         ForeignKey("engagements.id", ondelete="CASCADE"), index=True
     )
-    comparison_id: Mapped[str] = mapped_column(
-        ForeignKey("response_comparisons.id", ondelete="CASCADE"), unique=True
+    comparison_id: Mapped[str | None] = mapped_column(
+        ForeignKey("response_comparisons.id", ondelete="CASCADE"), nullable=True, unique=True
     )
     original_exchange_id: Mapped[str] = mapped_column(
         ForeignKey("http_exchanges.id", ondelete="CASCADE"), index=True
     )
+    assessment_run_id: Mapped[str | None] = mapped_column(
+        ForeignKey("assessment_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    endpoint_id: Mapped[str | None] = mapped_column(
+        ForeignKey("attack_surface_endpoints.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    check_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    suggested_severity: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    affected_exchange_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     title: Mapped[str] = mapped_column(String(200))
     category: Mapped[str] = mapped_column(String(64))
     confidence: Mapped[str] = mapped_column(String(16))

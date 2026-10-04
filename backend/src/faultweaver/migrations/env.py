@@ -4,6 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from faultweaver.analysis import models as analysis_models  # noqa: F401
+from faultweaver.assessments import models as assessment_models  # noqa: F401
 from faultweaver.attack_chains import models as attack_chain_models  # noqa: F401
 from faultweaver.database import Base
 from faultweaver.engagements import models as engagement_models  # noqa: F401
