@@ -1,3 +1,4 @@
+from faultweaver.assessments.checks.content import check_content
 from faultweaver.assessments.checks.cookies import check_cookies
 from faultweaver.assessments.checks.disclosure import check_disclosure
 from faultweaver.assessments.checks.forms import check_forms
@@ -9,6 +10,7 @@ def analyze_response(context: AnalysisContext) -> list[AnalysisSignal]:
     return [
         *check_headers(context),
         *check_cookies(context),
+        *check_content(context),
         *check_disclosure(context),
         *check_forms(context),
     ]

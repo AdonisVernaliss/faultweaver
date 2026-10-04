@@ -13,6 +13,14 @@ Faultweaver is pre-release software. The current vertical slice includes:
 
 - create and reopen engagements;
 - authorize exact scheme, hostname, port, and path-prefix scope rules;
+- start, monitor, stop, reopen, and compare bounded anonymous baseline assessments
+  with stable engagement-scoped `RUN-###` identifiers;
+- discover in-scope pages, API-like routes, form metadata, redirects,
+  `robots.txt`, and sitemaps without executing JavaScript or submitting forms;
+- persist every crawler request in Request Explorer and merge discovered or
+  observed routes into Attack Surface with crawler provenance;
+- review grouped passive observations and conservative baseline candidates for
+  headers, cookies, natural verbose errors, transport, redirects, and banners;
 - preview and import raw HTTP, HAR 1.2, cURL, and OpenAPI 3.0/3.1 data without
   executing commands, fetching references, or sending requests;
 - retain every observed transaction with stable `IMP-###` batch provenance while
@@ -31,10 +39,12 @@ Faultweaver is pre-release software. The current vertical slice includes:
 - compose confirmed findings and operator-authored intermediate steps into ordered Attack Chains with stable engagement-scoped `AC-###` IDs;
 - link existing immutable evidence at chain or step level, validate complete paths explicitly, and preserve archived chains and lifecycle history;
 - redact common secrets in API and workspace views while retaining replay material locally;
-- persist requests, comparisons, candidates, findings, evidence, retests, Attack Chains, and history in SQLite;
+- persist assessment runs, crawl state, requests, observations, candidates,
+  findings, evidence, retests, Attack Chains, and history in SQLite;
 - upgrade fresh or existing pre-migration databases through packaged Alembic migrations.
 
-Reporting/export, crawling and URL baselining, credential encryption, and the deterministic demo target remain later milestones.
+Reporting/export, credential encryption, and the deliberately vulnerable demo
+target remain later milestones.
 
 ## Architecture
 
@@ -93,6 +103,33 @@ make backend-lint backend-test
 make frontend-check frontend-test frontend-build
 ```
 
+## Baseline assessment safety model
+
+**New Baseline** accepts one exact authorized HTTP or HTTPS URL. Before the
+initial request, every discovered URL, and every redirect follow-up, the same
+scheme/hostname/effective-port/path-prefix scope matcher used by replay runs in
+the networking boundary. Out-of-scope links and redirects are recorded as
+skipped provenance and are never requested.
+
+Defaults are intentionally conservative: 50 pages, depth 3, 75 total requests,
+1 request/second, concurrency 2, a 10 second timeout, 1 MB response capture,
+and 3 query variants per path. Operators can tighten or raise these bounded
+limits in the start dialog. Automatic requests are anonymous `GET` only. Forms
+are metadata, resources are not downloaded automatically, JavaScript is not
+executed, and `robots.txt` is discovery information rather than authorization.
+Passive checks cover contextual defensive headers, cookie attributes, banners
+and stack traces, redirects, forms, mixed-content references, cache policy,
+internal path patterns, and sensitive-looking JSON field names. Low-confidence
+or application-specific signals remain informational instead of becoming
+candidates.
+
+The run detail preserves partial work after Stop or a request failure. A process
+restart recovers stale Pending/Running runs as Stopped instead of resuming
+uncontrolled work. Passive observations remain separate from candidates;
+candidate-level signals are deduplicated and require manual verification before
+promotion. See [Baseline assessments](docs/baseline-assessments.md) for checks,
+limits, and known constraints.
+
 ## Docker Compose
 
 ```bash
@@ -105,16 +142,20 @@ The workspace is available at `http://localhost:5173`, the API at `http://localh
 
 1. Create an engagement.
 2. Add an authorized scope rule. Scope must match before import and immediately before every outbound request or redirect.
-3. Open **Import Traffic**, choose Raw HTTP, HAR, cURL, or OpenAPI, and review the
+3. Open **Assessments**, choose **New Baseline**, review the request/depth/rate
+   limits, and start the exact in-scope target.
+4. Monitor concrete request/page/queue counters, stop gracefully when needed,
+   and review Discovered Surface, Requests, Observations, Candidates, Warnings,
+   and Configuration in the persisted run.
+5. Open **Import Traffic**, choose Raw HTTP, HAR, cURL, or OpenAPI, and review the
    redacted parse summary before importing.
-4. Inspect normalized endpoint provenance and observed/declared state in **Attack Surface**.
-5. Select an observed request in **Requests** and choose **Replay** only when you intend to send it.
-6. Add at least two identity contexts.
-7. Choose **Compare identities** from the original request and save the two replays plus response diff.
-8. Inspect observed statuses in **Auth matrix** and review any conservative **Candidates**.
-9. Classify the candidate or explicitly promote it, then author the finding prose.
-10. Preserve original and retest evidence, move the finding to **Ready for Retest**, and record each verification attempt.
-11. Open **Attack Chains**, create a path, add confirmed findings and intermediate steps in an explicit order, attach existing evidence, write the resulting impact, and validate the chain.
+6. Inspect normalized endpoint provenance in **Attack Surface**.
+7. Select an observed request in **Requests** and choose **Replay** only when you intend to send it.
+8. Add at least two identity contexts and use **Compare identities** when relevant.
+9. Inspect the **Auth matrix** and review any conservative **Candidates**.
+10. Classify a candidate or explicitly promote it, then author the finding prose.
+11. Preserve original and retest evidence, move the finding to **Ready for Retest**, and record each verification attempt.
+12. Open **Attack Chains**, create a path, add confirmed findings and intermediate steps in an explicit order, attach existing evidence, write the resulting impact, and validate the chain.
 
 A replay or candidate is not a confirmed vulnerability. Promotion is always an explicit operator decision, and automated candidate reasoning is never copied into final finding prose. Attack Chains are also operator-authored: Faultweaver does not infer or auto-generate attack paths.
 

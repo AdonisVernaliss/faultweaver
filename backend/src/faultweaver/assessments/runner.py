@@ -383,6 +383,13 @@ class AssessmentManager:
                         ],
                     )
                 )
+                if _origin(form.action_url) != _origin(exchange.url):
+                    self._persist_signals(
+                        session,
+                        run,
+                        exchange,
+                        [_cross_origin_form_signal()],
+                    )
             for link in discovered.links:
                 if urlsplit(exchange.url).scheme == "https" and urlsplit(link.url).scheme == "http":
                     self._persist_signals(
@@ -497,6 +504,8 @@ class AssessmentManager:
             kind=kind,
             assessment_run_id=run.id,
         )
+        if kind in {"stylesheet", "script", "image", "media"}:
+            run.resource_count += 1
         if not in_scope:
             self._warn(run, f"Skipped out-of-scope {kind}: {redact_url(canonical)}")
 
@@ -592,9 +601,11 @@ class AssessmentManager:
         )
         run.endpoint_count = (
             session.scalar(
-                select(func.count(distinct(HttpExchange.endpoint_id))).where(
-                    HttpExchange.assessment_run_id == run.id,
-                    HttpExchange.endpoint_id.is_not(None),
+                select(func.count(distinct(CrawlDiscovery.canonical_url))).where(
+                    CrawlDiscovery.assessment_run_id == run.id,
+                    CrawlDiscovery.kind.not_in(
+                        ["stylesheet", "script", "image", "media", "robots-rule"]
+                    ),
                 )
             )
             or 0
@@ -680,6 +691,24 @@ def _mixed_content_signal(kind: str) -> AnalysisSignal:
         "Candidate",
         "Low",
     )
+
+
+def _cross_origin_form_signal() -> AnalysisSignal:
+    return AnalysisSignal(
+        "forms.cross-origin-action",
+        "Cross-origin form action observed",
+        "A form action targets a different origin and warrants manual review.",
+        "The resolved form action origin differs from the document origin.",
+        "High",
+        "Informational",
+        "Informational",
+    )
+
+
+def _origin(url: str) -> tuple[str, str | None, int | None]:
+    parsed = urlsplit(url)
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    return parsed.scheme, parsed.hostname, port
 
 
 def _form_method(forms: list[object], url: str) -> str:

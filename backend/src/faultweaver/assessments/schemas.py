@@ -12,7 +12,7 @@ class AssessmentCreate(BaseModel):
     max_pages: int = Field(default=50, ge=1, le=500)
     max_depth: int = Field(default=3, ge=0, le=10)
     max_requests: int = Field(default=75, ge=1, le=1_000)
-    requests_per_second: float = Field(default=1.0, gt=0, le=20)
+    requests_per_second: float = Field(default=1.0, ge=0.1, le=20)
     concurrency: int = Field(default=2, ge=1, le=8)
     request_timeout_seconds: float = Field(default=10.0, ge=1, le=60)
     max_response_bytes: int = Field(default=1_000_000, ge=1_024, le=10_000_000)

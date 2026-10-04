@@ -10,6 +10,7 @@ Browser
             -> engagement-scoped identity contexts
             -> bounded HAR, cURL, OpenAPI, and raw HTTP import adapters
             -> canonical HTTP traffic and normalized Attack Surface repository
+            -> bounded scoped crawler and modular passive baseline checks
             -> scope-gated replay client
             -> response normalization, structured diff, and candidate analysis
             -> finding, immutable evidence, operator note, and retest lifecycle
@@ -25,6 +26,9 @@ Browser
   declared endpoints before persistence. cURL input is never passed to a shell;
   OpenAPI servers remain metadata and external references are never fetched.
 - `http_traffic` parses imported requests, stores request/response records, renders raw requests, and performs replay.
+- `assessments` owns `RUN-###` lifecycle, canonical URL identity, the explicit
+  breadth-first frontier, centralized scheduling/rate limiting, HTML/form/XML
+  discovery, bounded HTTP capture, run recovery, and modular passive checks.
 - `identities` owns local authentication contexts and applies them only within their engagement.
 - `analysis` normalizes bounded responses, stores explainable comparisons, derives the authorization matrix, and emits conservative candidates.
 - `findings` owns explicit candidate promotion, stable display IDs, report prose, immutable evidence snapshots, operator notes, retest attempts, and append-only lifecycle events.
@@ -32,11 +36,11 @@ Browser
 
 Every replay URL is checked in the networking layer before a request is sent. Redirects are handled one hop at a time and checked before following. Sensitive authorization and cookie headers are removed if a redirect changes origin. Response capture is bounded to one megabyte by default.
 
-Packaged Alembic migrations run on startup. The baseline revision can adopt the original pre-migration schema after validating every expected table and column; revisions `0002` through `0005` evolve identity/analysis, finding-lifecycle, Attack Chain, import-batch, and Attack Surface data without dropping stored engagements or traffic. Revision `0005` links existing exchanges to conservatively backfilled exact-path endpoints.
+Packaged Alembic migrations run on startup. The baseline revision can adopt the original pre-migration schema after validating every expected table and column; revisions `0002` through `0006` evolve identity/analysis, finding-lifecycle, Attack Chain, import-batch, Attack Surface, and baseline assessment data without dropping stored engagements or traffic. Revision `0005` links existing exchanges to conservatively backfilled exact-path endpoints; revision `0006` adds run/discovery/form/observation state and nullable crawler provenance to the canonical HTTP and Candidate records.
 
 ## Frontend boundaries
 
-The SvelteKit application is a client-rendered local workspace. Its server route proxies `/api` to the configured FastAPI service so local and Compose deployments have one browser origin. The unified import dialog requires a redacted preview before persisting HAR, cURL, or OpenAPI input. Attack Surface presents normalized endpoint provenance and declared/observed state; Request Explorer retains every concrete transaction and can filter by source. Candidate review, finding report, evidence library, retest ledger, and Attack Chain builder remain distinct views in one continuous workflow.
+The SvelteKit application is a client-rendered local workspace. Its server route proxies `/api` to the configured FastAPI service so local and Compose deployments have one browser origin. Assessment Runs presents bounded configuration, concrete live counters, graceful Stop, and persisted run sections while linking to the canonical Request Explorer and Candidate views. The unified import dialog requires a redacted preview before persisting HAR, cURL, or OpenAPI input. Attack Surface presents normalized endpoint provenance and declared/discovered/observed state; Request Explorer retains every concrete transaction and can filter by source. Candidate review, finding report, evidence library, retest ledger, and Attack Chain builder remain distinct views in one continuous workflow.
 
 ## Attack Chain model
 
@@ -48,7 +52,7 @@ Validation is explicit. A chain must have a title, at least two meaningful steps
 
 ## Persistence
 
-SQLite is the source of truth. The default local database is `data/faultweaver.db`; Compose mounts `/data/faultweaver.db` from a named volume. Import batches use stable engagement-scoped `IMP-###` IDs and retain format, safe filename, content digest, counts, warnings, and timestamps. Imported requests and replays are separate records linked through `parent_exchange_id`; observed requests also retain their batch, source entry, and normalized endpoint links. Comparisons link an immutable original to both replay records and their identity contexts; candidates remain linked after promotion. Per-engagement counters allocate stable `IMP-###`, `FW-###`, `EV-###`, `RT-###`, and `AC-###` display IDs.
+SQLite is the source of truth. The default local database is `data/faultweaver.db`; Compose mounts `/data/faultweaver.db` from a named volume. Assessment runs use stable engagement-scoped `RUN-###` IDs and retain target, limits, status, counters, timestamps, warnings, stop reason, frontier state, form metadata, grouped observations, and candidate links. Import batches use stable engagement-scoped `IMP-###` IDs and retain format, safe filename, content digest, counts, warnings, and timestamps. Imported requests and replays are separate records linked through `parent_exchange_id`; crawler requests add run/depth/discovery provenance to that same canonical exchange store. Comparisons link an immutable original to both replay records and their identity contexts; candidates remain linked after promotion. Per-engagement counters allocate stable `RUN-###`, `IMP-###`, `FW-###`, `EV-###`, `RT-###`, and `AC-###` display IDs.
 
 Attack Surface grouping is deliberately conservative. Observed traffic groups by exact method, origin, and concrete path. A concrete request is associated with a parameterized path only when an imported OpenAPI declaration for the same origin provides that template. Declared operations without a server remain useful standalone inventory rather than being guessed onto an observed host. Re-importing identical content warns about the probable duplicate but preserves its raw transactions and batch provenance.
 
@@ -61,6 +65,12 @@ Replay credentials and imported request material remain in the local database. P
 - No outbound request is allowed without an active matching scope rule.
 - Only HTTP and HTTPS targets are accepted.
 - Redirects are not followed implicitly.
+- Assessment redirects are represented as discoveries and scope-checked before
+  they enter the request frontier; external destinations are never requested.
+- The crawler uses only anonymous GET, never submits forms, never executes
+  JavaScript, and does not invoke a browser, shell, cURL, or external scanner.
+- Depth, pages, total requests, rate, concurrency, timeout, response capture,
+  and query variants are explicit per-run limits.
 - Request timeout, redirect count, and captured response size are bounded.
 - Importing traffic parses and stores it but does not send it.
 - HAR, cURL, and OpenAPI inputs are bounded and handled as untrusted data; no

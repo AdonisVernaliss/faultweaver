@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from sqlalchemy import create_engine, inspect, text
@@ -196,6 +197,55 @@ def test_0005_upgrades_to_latest_and_preserves_existing_candidates(tmp_path: Pat
                 "VALUES ('v5-engagement', 2, 3, 4, 5, 6)"
             )
         )
+        session.execute(
+            text(
+                "INSERT INTO identities "
+                "(id, engagement_id, name, description, is_anonymous, cookies, custom_headers, "
+                "created_at, updated_at) VALUES "
+                "('identity-a', 'v5-engagement', 'Identity A', '', 0, '[]', '[]', "
+                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), "
+                "('identity-b', 'v5-engagement', 'Identity B', '', 0, '[]', '[]', "
+                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            )
+        )
+        for exchange_id in ("original-request", "replay-a", "replay-b"):
+            session.execute(
+                text(
+                    "INSERT INTO http_exchanges "
+                    "(id, engagement_id, auth_source, operator_modified, source, method, url, "
+                    "host, path, query, request_headers, response_headers, response_truncated, "
+                    "redirect_chain, created_at) VALUES "
+                    "(:id, 'v5-engagement', 'original', 0, 'manual', 'GET', "
+                    "'https://example.test/account', 'example.test', '/account', '', '[]', "
+                    "'[]', 0, '[]', CURRENT_TIMESTAMP)"
+                ),
+                {"id": exchange_id},
+            )
+        session.execute(
+            text(
+                "INSERT INTO response_comparisons "
+                "(id, engagement_id, original_exchange_id, replay_a_id, replay_b_id, "
+                "identity_a_id, identity_b_id, result, created_at) VALUES "
+                "('comparison-one', 'v5-engagement', 'original-request', 'replay-a', "
+                "'replay-b', 'identity-a', 'identity-b', '{}', CURRENT_TIMESTAMP)"
+            )
+        )
+        session.execute(
+            text(
+                "INSERT INTO candidates "
+                "(id, engagement_id, comparison_id, original_exchange_id, title, category, "
+                "confidence, status, reasoning, notes, created_at, updated_at) VALUES "
+                "('candidate-one', 'v5-engagement', 'comparison-one', 'original-request', "
+                "'Preserved candidate', 'authorization', 'Medium', 'Pending', '[]', '', "
+                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            )
+        )
+        session.execute(
+            text(
+                "INSERT INTO candidate_replays (candidate_id, exchange_id) VALUES "
+                "('candidate-one', 'replay-a'), ('candidate-one', 'replay-b')"
+            )
+        )
         session.commit()
 
     upgrade_database(database_url)
@@ -208,5 +258,25 @@ def test_0005_upgrades_to_latest_and_preserves_existing_candidates(tmp_path: Pat
                 "WHERE engagement_id = 'v5-engagement'"
             )
         ).one()
+        candidate = session.execute(
+            text(
+                "SELECT comparison_id, original_exchange_id, assessment_run_id, check_id, "
+                "affected_exchange_ids FROM candidates WHERE id = 'candidate-one'"
+            )
+        ).one()
         assert sequence == (2, 3, 4, 5, 6, 1)
+        assert candidate[:4] == ("comparison-one", "original-request", None, None)
+        assert json.loads(candidate.affected_exchange_ids) == []
+        assert (
+            session.scalar(
+                text("SELECT count(*) FROM candidate_replays WHERE candidate_id = 'candidate-one'")
+            )
+            == 2
+        )
+        assert (
+            session.scalar(
+                text("SELECT count(*) FROM http_exchanges WHERE engagement_id = 'v5-engagement'")
+            )
+            == 3
+        )
         assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
