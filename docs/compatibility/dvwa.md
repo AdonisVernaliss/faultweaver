@@ -127,4 +127,3 @@ logic was added.
 - Replay credentials and captured traffic remain unencrypted at rest in the
   local SQLite database. The database and any raw local capture must be treated
   as sensitive and removed when no longer needed.
-
