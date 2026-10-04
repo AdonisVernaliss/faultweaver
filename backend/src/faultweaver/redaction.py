@@ -5,7 +5,7 @@ import logging
 import re
 from collections.abc import Mapping
 from typing import Any
-from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, unquote_plus, urlencode, urlsplit, urlunsplit
 
 REDACTED = "[REDACTED]"
 _SENSITIVE_HEADERS = {
@@ -19,7 +19,7 @@ _SENSITIVE_KEY = re.compile(
     r"(^|[_-])(api[_-]?key|authorization|cookie|pass(word|phrase)?|secret|token)(s)?$",
     re.IGNORECASE,
 )
-_FORM_SECRET = re.compile(r"(?i)(\b(?:api[_-]?key|password|secret|token)=)[^&\s]*")
+_FORM_FIELD = re.compile(r"(?P<prefix>(?:^|[&\s])(?P<name>[^=&\s]+)=)[^&\s]*")
 _HEADER_SECRET = re.compile(
     r"(?im)^(authorization|cookie|proxy-authorization|set-cookie|x-api-key)\s*:\s*.*$"
 )
@@ -55,11 +55,20 @@ def redact_body(body: str | None) -> str | None:
     try:
         value = json.loads(body)
     except (json.JSONDecodeError, TypeError):
-        safe = _FORM_SECRET.sub(r"\1[REDACTED]", body)
+        safe = _redact_form_fields(body)
         safe = _HEADER_SECRET.sub(r"\1: [REDACTED]", safe)
         safe = _INLINE_HEADER_SECRET.sub(r"\1[REDACTED]", safe)
         return _INLINE_NAMED_SECRET.sub(r"\1[REDACTED]", safe)
     return json.dumps(_redact_value(value), separators=(",", ":"), ensure_ascii=False)
+
+
+def _redact_form_fields(value: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        if is_sensitive_key(unquote_plus(match.group("name"))):
+            return f"{match.group('prefix')}{REDACTED}"
+        return match.group(0)
+
+    return _FORM_FIELD.sub(replace, value)
 
 
 def redact_query(query: str) -> str:

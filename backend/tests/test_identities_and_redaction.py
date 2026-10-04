@@ -143,6 +143,20 @@ def test_free_text_redacts_inline_authorization_and_named_secrets() -> None:
     assert redacted == "HTTP 403 observed. Authorization: [REDACTED]; token: [REDACTED]"
 
 
+def test_urlencoded_body_redacts_prefixed_sensitive_fields() -> None:
+    body = (
+        "username=synthetic-user&password=synthetic-password&"
+        "user_token=synthetic-csrf&access_token=synthetic-access&safe=visible"
+    )
+
+    redacted = redact_body(body)
+
+    assert redacted == (
+        "username=synthetic-user&password=[REDACTED]&user_token=[REDACTED]&"
+        "access_token=[REDACTED]&safe=visible"
+    )
+
+
 def test_urls_redact_query_fragment_and_userinfo_credentials() -> None:
     redacted = redact_url(
         "https://synthetic-user:synthetic-password@api.example.test:8443/api/items"
