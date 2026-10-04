@@ -1,4 +1,4 @@
-.PHONY: backend-install backend-test backend-lint demo-lint demo-test frontend-install frontend-check frontend-test frontend-build compatibility-juice-shop compatibility-juice-shop-up compatibility-juice-shop-test compatibility-juice-shop-down
+.PHONY: backend-install backend-test backend-lint demo-lint demo-test frontend-install frontend-check frontend-test frontend-build compatibility-juice-shop compatibility-juice-shop-up compatibility-juice-shop-test compatibility-juice-shop-down compatibility-dvwa
 
 backend-install:
 	uv sync --project backend --all-groups
@@ -40,3 +40,6 @@ compatibility-juice-shop-test:
 
 compatibility-juice-shop-down:
 	docker compose --project-name faultweaver-juice-shop-compat --file compatibility/juice-shop/compose.yaml down --remove-orphans
+
+compatibility-dvwa:
+	./compatibility/dvwa/run.sh

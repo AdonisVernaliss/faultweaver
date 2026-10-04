@@ -1,0 +1,52 @@
+services:
+  dvwa:
+    image: ghcr.io/digininja/dvwa:a96943d@sha256:d8e960e0e3ca2aa487532b404a6af2669f46854a74b5182f2f8e0e31895e0e29
+    platform: linux/amd64
+    pull_policy: missing
+    environment:
+      DB_SERVER: db
+      DB_DATABASE: dvwa
+      DB_USER: dvwa
+      DB_PASSWORD: ${FAULTWEAVER_DVWA_DB_PASSWORD:?set by compatibility runner}
+      DEFAULT_SECURITY_LEVEL: impossible
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FAULTWEAVER_DVWA_PORT:-4280}:80"
+    restart: "no"
+    healthcheck:
+      test:
+        - CMD
+        - php
+        - -r
+        - "exit(@file_get_contents('http://127.0.0.1/setup.php') === false ? 1 : 0);"
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  db:
+    image: docker.io/library/mariadb:10@sha256:7db29378d4fdab73f8123bbc2b48905c90d1a4b00cf848b028f1e81e623257f2
+    pull_policy: missing
+    environment:
+      MARIADB_ROOT_PASSWORD: ${FAULTWEAVER_DVWA_DB_ROOT_PASSWORD:?set by compatibility runner}
+      MARIADB_DATABASE: dvwa
+      MARIADB_USER: dvwa
+      MARIADB_PASSWORD: ${FAULTWEAVER_DVWA_DB_PASSWORD:?set by compatibility runner}
+    volumes:
+      - dvwa-db:/var/lib/mysql
+    restart: "no"
+    healthcheck:
+      test:
+        - CMD
+        - healthcheck.sh
+        - --connect
+        - --innodb_initialized
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+volumes:
+  dvwa-db:
