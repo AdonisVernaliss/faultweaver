@@ -37,6 +37,11 @@ class ExchangeResponse(BaseModel):
     identity_id: str | None
     import_batch_id: str | None
     endpoint_id: str | None
+    assessment_run_id: str | None
+    discovered_from_exchange_id: str | None
+    crawl_depth: int | None
+    discovery_kind: str | None
+    crawl_error: str | None
     source_entry_index: int | None
     auth_source: str
     operator_modified: bool
@@ -74,6 +79,11 @@ def public_exchange(exchange: object) -> ExchangeResponse:
         identity_id=exchange.identity_id,  # type: ignore[attr-defined]
         import_batch_id=exchange.import_batch_id,  # type: ignore[attr-defined]
         endpoint_id=exchange.endpoint_id,  # type: ignore[attr-defined]
+        assessment_run_id=exchange.assessment_run_id,  # type: ignore[attr-defined]
+        discovered_from_exchange_id=exchange.discovered_from_exchange_id,  # type: ignore[attr-defined]
+        crawl_depth=exchange.crawl_depth,  # type: ignore[attr-defined]
+        discovery_kind=exchange.discovery_kind,  # type: ignore[attr-defined]
+        crawl_error=redact_body(exchange.crawl_error),  # type: ignore[attr-defined]
         source_entry_index=exchange.source_entry_index,  # type: ignore[attr-defined]
         auth_source=exchange.auth_source,  # type: ignore[attr-defined]
         operator_modified=exchange.operator_modified,  # type: ignore[attr-defined]

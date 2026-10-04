@@ -41,7 +41,11 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 
 def public_candidate(session: Session, candidate: Candidate) -> CandidateResponse:
-    comparison = session.get(ResponseComparison, candidate.comparison_id)
+    comparison = (
+        session.get(ResponseComparison, candidate.comparison_id)
+        if candidate.comparison_id is not None
+        else None
+    )
     original = session.get(HttpExchange, candidate.original_exchange_id)
     finding = session.scalar(select(Finding).where(Finding.candidate_id == candidate.id))
     identities: list[dict[str, str]] = []
@@ -65,6 +69,11 @@ def public_candidate(session: Session, candidate: Candidate) -> CandidateRespons
         engagement_id=candidate.engagement_id,
         comparison_id=candidate.comparison_id,
         original_exchange_id=candidate.original_exchange_id,
+        assessment_run_id=candidate.assessment_run_id,
+        endpoint_id=candidate.endpoint_id,
+        check_id=candidate.check_id,
+        suggested_severity=candidate.suggested_severity,
+        affected_exchange_ids=candidate.affected_exchange_ids,
         supporting_replay_ids=[item.id for item in candidate.supporting_replays],
         title=candidate.title,
         category=candidate.category,
@@ -322,12 +331,16 @@ def promote_candidate(
     )
     session.add(finding)
     session.flush()
+    evidence_source = Evidence.source_candidate_id == candidate.id
+    if candidate.comparison_id is not None:
+        evidence_source = evidence_source | (
+            Evidence.source_comparison_id == candidate.comparison_id
+        )
     for evidence in session.scalars(
         select(Evidence).where(
             Evidence.engagement_id == engagement_id,
             Evidence.finding_id.is_(None),
-            (Evidence.source_candidate_id == candidate.id)
-            | (Evidence.source_comparison_id == candidate.comparison_id),
+            evidence_source,
         )
     ):
         evidence.finding_id = finding.id

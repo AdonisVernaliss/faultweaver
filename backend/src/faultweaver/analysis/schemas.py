@@ -20,8 +20,13 @@ class ComparisonCreate(BaseModel):
 class CandidateResponse(BaseModel):
     id: str
     engagement_id: str
-    comparison_id: str
+    comparison_id: str | None
     original_exchange_id: str
+    assessment_run_id: str | None
+    endpoint_id: str | None
+    check_id: str | None
+    suggested_severity: str | None
+    affected_exchange_ids: list[str]
     supporting_replay_ids: list[str]
     title: str
     category: str

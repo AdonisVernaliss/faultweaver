@@ -31,8 +31,7 @@ def check_disclosure(context: AnalysisContext) -> list[AnalysisSignal]:
                 check_id="disclosure.verbose-error",
                 title="Verbose application error observed",
                 description=(
-                    "A naturally occurring error response exposed stack-like "
-                    "implementation detail."
+                    "A naturally occurring error response exposed stack-like implementation detail."
                 ),
                 reason="The response was a server error and contained a stack-trace marker.",
                 confidence="High",

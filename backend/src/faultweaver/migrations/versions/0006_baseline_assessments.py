@@ -130,13 +130,21 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["assessment_run_id"], ["assessment_runs.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["parent_exchange_id"], ["http_exchanges.id"], ondelete="SET NULL"),
-        sa.ForeignKeyConstraint(["requested_exchange_id"], ["http_exchanges.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(
+            ["requested_exchange_id"], ["http_exchanges.id"], ondelete="SET NULL"
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("assessment_run_id", "canonical_url", name="uq_crawl_discovery_url"),
     )
-    op.create_index("ix_crawl_discoveries_assessment_run_id", "crawl_discoveries", ["assessment_run_id"])
-    op.create_index("ix_crawl_discoveries_parent_exchange_id", "crawl_discoveries", ["parent_exchange_id"])
-    op.create_index("ix_crawl_discoveries_requested_exchange_id", "crawl_discoveries", ["requested_exchange_id"])
+    op.create_index(
+        "ix_crawl_discoveries_assessment_run_id", "crawl_discoveries", ["assessment_run_id"]
+    )
+    op.create_index(
+        "ix_crawl_discoveries_parent_exchange_id", "crawl_discoveries", ["parent_exchange_id"]
+    )
+    op.create_index(
+        "ix_crawl_discoveries_requested_exchange_id", "crawl_discoveries", ["requested_exchange_id"]
+    )
     op.create_index("ix_crawl_discoveries_state", "crawl_discoveries", ["state"])
 
     op.create_table(
@@ -178,17 +186,29 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["assessment_run_id"], ["assessment_runs.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["exchange_id"], ["http_exchanges.id"], ondelete="SET NULL"),
-        sa.ForeignKeyConstraint(["endpoint_id"], ["attack_surface_endpoints.id"], ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(
+            ["endpoint_id"], ["attack_surface_endpoints.id"], ondelete="SET NULL"
+        ),
         sa.ForeignKeyConstraint(["candidate_id"], ["candidates.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("assessment_run_id", "fingerprint", name="uq_baseline_observation"),
     )
-    op.create_index("ix_baseline_observations_assessment_run_id", "baseline_observations", ["assessment_run_id"])
-    op.create_index("ix_baseline_observations_exchange_id", "baseline_observations", ["exchange_id"])
-    op.create_index("ix_baseline_observations_endpoint_id", "baseline_observations", ["endpoint_id"])
-    op.create_index("ix_baseline_observations_candidate_id", "baseline_observations", ["candidate_id"])
+    op.create_index(
+        "ix_baseline_observations_assessment_run_id", "baseline_observations", ["assessment_run_id"]
+    )
+    op.create_index(
+        "ix_baseline_observations_exchange_id", "baseline_observations", ["exchange_id"]
+    )
+    op.create_index(
+        "ix_baseline_observations_endpoint_id", "baseline_observations", ["endpoint_id"]
+    )
+    op.create_index(
+        "ix_baseline_observations_candidate_id", "baseline_observations", ["candidate_id"]
+    )
     op.create_index("ix_baseline_observations_check_id", "baseline_observations", ["check_id"])
-    op.create_index("ix_baseline_observations_classification", "baseline_observations", ["classification"])
+    op.create_index(
+        "ix_baseline_observations_classification", "baseline_observations", ["classification"]
+    )
 
 
 def downgrade() -> None:

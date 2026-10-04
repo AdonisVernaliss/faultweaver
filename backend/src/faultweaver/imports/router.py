@@ -232,6 +232,8 @@ def _public_endpoint(
         else "observed_only"
         if count
         else "declared_only"
+        if endpoint.declared_by_openapi
+        else "discovered_only"
     )
     return AttackSurfaceEndpointResponse(
         id=endpoint.id,

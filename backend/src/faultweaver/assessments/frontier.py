@@ -34,6 +34,8 @@ class CrawlFrontier:
         depth: int,
         kind: str,
         parent_exchange_id: str | None = None,
+        enqueue: bool = True,
+        skip_reason: str | None = None,
     ) -> FrontierItem | None:
         canonical = canonicalize_url(url)
         if canonical in self._known:
@@ -47,6 +49,10 @@ class CrawlFrontier:
             parent_exchange_id=parent_exchange_id,
         )
         self.items.append(item)
+        if not enqueue:
+            item.state = "skipped"
+            item.reason = skip_reason or "metadata only"
+            return item
         if depth > self.max_depth:
             item.state = "skipped"
             item.reason = "depth limit"

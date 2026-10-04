@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse
 
 from faultweaver import __version__
 from faultweaver.analysis.router import router as analysis_router
+from faultweaver.assessments.router import router as assessments_router
+from faultweaver.assessments.runner import AssessmentManager
 from faultweaver.attack_chains.router import router as attack_chains_router
 from faultweaver.config import Settings
 from faultweaver.database import create_session_factory, get_session, session_dependency
@@ -31,12 +33,17 @@ def create_app(
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_environment()
     session_factory = create_session_factory(resolved_settings.database_url)
+    assessment_manager = AssessmentManager(session_factory, transport=http_transport)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         upgrade_database(resolved_settings.database_url)
         install_log_redaction()
-        yield
+        assessment_manager.recover_stale()
+        try:
+            yield
+        finally:
+            assessment_manager.shutdown()
 
     app = FastAPI(
         title="Faultweaver API",
@@ -47,6 +54,7 @@ def create_app(
     app.state.settings = resolved_settings
     app.state.session_factory = session_factory
     app.state.http_transport = http_transport
+    app.state.assessment_manager = assessment_manager
     app.dependency_overrides[get_session] = partial(session_dependency, session_factory)
     app.add_middleware(
         CORSMiddleware,
@@ -76,6 +84,7 @@ def create_app(
     app.include_router(findings_router)
     app.include_router(attack_chains_router)
     app.include_router(imports_router)
+    app.include_router(assessments_router)
 
     return app
 

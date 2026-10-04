@@ -302,6 +302,39 @@ def attach_exchange_endpoint(
     return endpoint
 
 
+def upsert_discovered_endpoint(
+    session: Session,
+    *,
+    engagement_id: str,
+    method: str,
+    url: str,
+    kind: str,
+    assessment_run_id: str,
+) -> AttackSurfaceEndpoint:
+    record = CanonicalHttpRecord(method=method, url=url)
+    endpoint, _ = endpoint_for_record(
+        session, engagement_id=engagement_id, record=record, source="crawler"
+    )
+    discovery = endpoint.details.get("crawler_discovery")
+    runs: list[str] = []
+    kinds: list[str] = []
+    if isinstance(discovery, dict):
+        runs = [str(item) for item in discovery.get("assessment_runs", [])]
+        kinds = [str(item) for item in discovery.get("kinds", [])]
+    if assessment_run_id not in runs:
+        runs.append(assessment_run_id)
+    if kind not in kinds:
+        kinds.append(kind)
+    endpoint.details = {
+        **endpoint.details,
+        "crawler_discovery": {
+            "assessment_runs": runs,
+            "kinds": kinds,
+        },
+    }
+    return endpoint
+
+
 def public_batch(batch: ImportBatch) -> ImportBatchResponse:
     return ImportBatchResponse(
         id=batch.id,
