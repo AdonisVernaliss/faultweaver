@@ -341,7 +341,11 @@ def test_real_mutillidae_workflow(
             run["discoveries"]
         )
         crawler = client.get(f"{prefix}/requests?source=crawler").json()["items"]
-        assert all(r["method"] == "GET" and r["request_body"] is None for r in crawler)
+        assert all(
+            r["method"] == "GET"
+            and client.get(f"/api/requests/{r['id']}").json()["request_body"] is None
+            for r in crawler
+        )
         assert not any(
             "do=" in r["query"] or "set-up-database" in r["path"] for r in crawler
         )

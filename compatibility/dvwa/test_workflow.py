@@ -315,7 +315,10 @@ def test_real_dvwa_workflow(tmp_path: Path) -> None:
         ).json()
         assert crawler_requests["total"] == run["request_count"]
         assert all(item["method"] == "GET" for item in crawler_requests["items"])
-        assert all(item["request_body"] is None for item in crawler_requests["items"])
+        assert all(
+            client.get(f"/api/requests/{item['id']}").json()["request_body"] is None
+            for item in crawler_requests["items"]
+        )
 
         har_preview = client.post(
             f"/api/engagements/{engagement_id}/imports/har/preview",
@@ -371,6 +374,8 @@ def test_real_dvwa_workflow(tmp_path: Path) -> None:
         imported_login = next(
             item for item in login_requests if item["method"] == "POST"
         )
+        assert password not in json.dumps(imported_login)
+        imported_login = client.get(f"/api/requests/{imported_login['id']}").json()
         assert password not in json.dumps(imported_login)
         assert "password=[REDACTED]" in imported_login["request_body"]
         assert "user_token=[REDACTED]" in imported_login["request_body"]

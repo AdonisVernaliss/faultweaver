@@ -1,5 +1,5 @@
 import { api } from './api';
-import type { Exchange, ExchangeList } from './types';
+import type { ExchangeSummary, ExchangeList } from './types';
 
 type RequestPage = ExchangeList & { unfilteredTotal: number };
 
@@ -29,7 +29,7 @@ export function createRequestPageLoader() {
   };
 }
 
-export function mergeRequestPages(existing: Exchange[], incoming: Exchange[]): Exchange[] {
+export function mergeRequestPages(existing: ExchangeSummary[], incoming: ExchangeSummary[]): ExchangeSummary[] {
   const known = new Set(existing.map(request => request.id));
   return [...existing, ...incoming.filter(request => !known.has(request.id))];
 }

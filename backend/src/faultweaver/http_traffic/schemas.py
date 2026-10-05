@@ -28,7 +28,7 @@ class ReplayCreate(BaseModel):
         return value.strip().upper() if value else value
 
 
-class ExchangeResponse(BaseModel):
+class ExchangeSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -41,7 +41,6 @@ class ExchangeResponse(BaseModel):
     discovered_from_exchange_id: str | None
     crawl_depth: int | None
     discovery_kind: str | None
-    crawl_error: str | None
     source_entry_index: int | None
     auth_source: str
     operator_modified: bool
@@ -51,15 +50,19 @@ class ExchangeResponse(BaseModel):
     host: str
     path: str
     query: str
-    request_headers: list[HeaderEntry]
-    request_body: str | None
     response_status: int | None
-    response_headers: list[HeaderEntry]
-    response_body: str | None
     response_elapsed_ms: float | None
     response_truncated: bool
-    redirect_chain: list[str]
     created_at: datetime
+
+
+class ExchangeResponse(ExchangeSummary):
+    crawl_error: str | None
+    request_headers: list[HeaderEntry]
+    request_body: str | None
+    response_headers: list[HeaderEntry]
+    response_body: str | None
+    redirect_chain: list[str]
 
 
 class ExchangeDetail(ExchangeResponse):
@@ -67,8 +70,15 @@ class ExchangeDetail(ExchangeResponse):
 
 
 class ExchangeList(BaseModel):
-    items: list[ExchangeResponse]
+    items: list[ExchangeSummary]
     total: int
+
+
+def public_summary(exchange: object) -> ExchangeSummary:
+    summary = ExchangeSummary.model_validate(exchange)
+    return summary.model_copy(
+        update={"url": redact_url(summary.url), "query": redact_query(summary.query)}
+    )
 
 
 def public_exchange(exchange: object) -> ExchangeResponse:

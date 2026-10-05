@@ -66,9 +66,12 @@ export interface ExchangeDetail extends Exchange {
 }
 
 export interface ExchangeList {
-  items: Exchange[];
+  items: ExchangeSummary[];
   total: number;
 }
+
+export type ExchangeSummary = Omit<Exchange,
+  'request_headers' | 'request_body' | 'response_headers' | 'response_body' | 'redirect_chain' | 'crawl_error'>;
 
 export type ImportFormat = 'raw' | 'har' | 'curl' | 'openapi';
 

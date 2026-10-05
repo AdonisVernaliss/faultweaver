@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatDuration, requestTarget, sourceLabel } from '../format';
-  import type { Exchange, ExchangeDetail, Identity } from '../types';
+  import type { ExchangeSummary, ExchangeDetail, Identity } from '../types';
 
   let {
     requests,
@@ -21,7 +21,7 @@
     onsaveevidence,
     onimport
   }: {
-    requests: Exchange[];
+    requests: ExchangeSummary[];
     selected: ExchangeDetail | null;
     loadingDetail: boolean;
     replaying: boolean;

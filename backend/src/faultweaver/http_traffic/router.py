@@ -4,7 +4,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import ValidationError
 from sqlalchemy import String, cast, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from faultweaver.database import get_session
 from faultweaver.engagements.router import get_engagement_or_404
@@ -22,9 +22,11 @@ from faultweaver.http_traffic.schemas import (
     ExchangeDetail,
     ExchangeList,
     ExchangeResponse,
+    ExchangeSummary,
     RawImportCreate,
     ReplayCreate,
     public_exchange,
+    public_summary,
 )
 from faultweaver.http_traffic.service import build_replay_exchange
 from faultweaver.imports.service import attach_exchange_endpoint
@@ -127,13 +129,19 @@ def list_requests(
     items = list(
         session.scalars(
             select(HttpExchange)
+            .options(
+                load_only(
+                    *(getattr(HttpExchange, name) for name in ExchangeSummary.model_fields),
+                    raiseload=True,
+                )
+            )
             .where(*filters)
             .order_by(HttpExchange.created_at.desc(), HttpExchange.id.desc())
             .limit(limit)
             .offset(offset)
         )
     )
-    return ExchangeList(items=[public_exchange(item) for item in items], total=total)
+    return ExchangeList(items=[public_summary(item) for item in items], total=total)
 
 
 @router.get("/api/requests/{request_id}", response_model=ExchangeDetail)

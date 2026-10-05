@@ -281,7 +281,10 @@ def test_real_webgoat_workflow(tmp_path: Path) -> None:
         ).json()
         assert crawler_requests["total"] == run["request_count"]
         assert all(item["method"] == "GET" for item in crawler_requests["items"])
-        assert all(item["request_body"] is None for item in crawler_requests["items"])
+        assert all(
+            client.get(f"/api/requests/{item['id']}").json()["request_body"] is None
+            for item in crawler_requests["items"]
+        )
 
         har_preview = client.post(
             f"/api/engagements/{engagement_id}/imports/har/preview",
@@ -323,6 +326,9 @@ def test_real_webgoat_workflow(tmp_path: Path) -> None:
         imported_registration = next(
             item for item in registration_requests if item["method"] == "POST"
         )
+        imported_registration = client.get(
+            f"/api/requests/{imported_registration['id']}"
+        ).json()
         assert har_username in imported_registration["request_body"]
         assert "password=[REDACTED]" in imported_registration["request_body"]
         assert "matchingPassword=[REDACTED]" in imported_registration["request_body"]

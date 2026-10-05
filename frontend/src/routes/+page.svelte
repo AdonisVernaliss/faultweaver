@@ -30,6 +30,7 @@
     Comparison,
     Evidence,
     Exchange,
+    ExchangeSummary,
     ExchangeDetail,
     ExchangeList,
     Identity,
@@ -43,7 +44,7 @@
   let engagements = $state<Engagement[]>([]);
   let engagement = $state<EngagementDetail | null>(null);
   let scopes = $state<ScopeRule[]>([]);
-  let requests = $state<Exchange[]>([]);
+  let requests = $state<ExchangeSummary[]>([]);
   let requestCount = $state(0);
   let requestTotal = $state(0);
   let requestOffset = $state(0);

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 
 from faultweaver.http_traffic.models import HttpExchange
 from tests.test_engagements_and_scope import create_engagement
@@ -72,6 +73,47 @@ def test_import_rejects_out_of_scope_and_malformed_requests(app_client: TestClie
 
     assert out_of_scope.status_code == 403
     assert malformed.status_code == 422
+
+
+def test_request_listing_never_materializes_payload_columns(app_client: TestClient) -> None:
+    engagement = create_engagement(app_client)
+    authorize(app_client, engagement)
+    imported = app_client.post(
+        f"/api/engagements/{engagement}/traffic/raw",
+        json={
+            "base_url": "http://app.test",
+            "raw": (
+                "POST /api/items?token=synthetic-list-token HTTP/1.1\r\n"
+                "Host: app.test\r\n\r\nlarge-private-payload"
+            ),
+        },
+    ).json()
+    statements = []
+    engine = app_client.app.state.session_factory.kw["bind"]
+
+    def observe(connection, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", observe)
+    try:
+        page = app_client.get(f"/api/engagements/{engagement}/requests").json()
+    finally:
+        event.remove(engine, "before_cursor_execute", observe)
+    for field in (
+        "request_body",
+        "request_headers",
+        "response_body",
+        "response_headers",
+        "redirect_chain",
+        "crawl_error",
+    ):
+        assert field not in page["items"][0]
+        assert all(f"http_exchanges.{field}" not in statement for statement in statements)
+    assert "synthetic-list-token" not in str(page)
+    assert (
+        app_client.get(f"/api/requests/{imported['id']}").json()["request_body"]
+        == "large-private-payload"
+    )
 
 
 def test_request_search_spans_pages_and_matches_literal_method_status_and_query(
