@@ -1,4 +1,4 @@
-.PHONY: backend-install backend-test backend-lint demo-lint demo-test frontend-install frontend-check frontend-test frontend-build compatibility-juice-shop compatibility-juice-shop-up compatibility-juice-shop-test compatibility-juice-shop-down compatibility-dvwa
+.PHONY: backend-install backend-test backend-lint demo-lint demo-test frontend-install frontend-check frontend-test frontend-build compatibility-juice-shop compatibility-juice-shop-up compatibility-juice-shop-test compatibility-juice-shop-down compatibility-dvwa compatibility-webgoat
 
 backend-install:
 	uv sync --project backend --all-groups
@@ -43,3 +43,6 @@ compatibility-juice-shop-down:
 
 compatibility-dvwa:
 	./compatibility/dvwa/run.sh
+
+compatibility-webgoat:
+	./compatibility/webgoat/run.sh
