@@ -46,3 +46,7 @@ compatibility-dvwa:
 
 compatibility-webgoat:
 	./compatibility/webgoat/run.sh
+
+.PHONY: compatibility-mutillidae
+compatibility-mutillidae:
+	./compatibility/mutillidae/run.sh

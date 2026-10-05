@@ -1,0 +1,32 @@
+services:
+  www:
+    image: webpwnized/mutillidae:www-2.12.7@sha256:71c1e63420311da0d4561a2592afdb1a12ac28c58d2307d3c0aa7844f9b30441
+    platform: linux/amd64
+    pull_policy: missing
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FAULTWEAVER_MUTILLIDAE_PORT:-4380}:80"
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1/') === false ? 1 : 0);"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+      start_period: 5s
+  database:
+    image: webpwnized/mutillidae:database-2.12.7@sha256:bd79b51b9a29eb852b2f85bed2629407df6355d7f729b66913e0abe1b7a99ed6
+    platform: linux/amd64
+    pull_policy: missing
+    volumes:
+      - mutillidae-db:/var/lib/mysql
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "--silent"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+      start_period: 5s
+volumes:
+  mutillidae-db:
