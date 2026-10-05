@@ -4,7 +4,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from faultweaver.identities.models import Identity
-from faultweaver.redaction import REDACTED, SecretRedactingFilter, redact_body, redact_url
+from faultweaver.redaction import (
+    REDACTED,
+    SecretRedactingFilter,
+    is_sensitive_key,
+    redact_body,
+    redact_url,
+)
 from tests.test_engagements_and_scope import create_engagement
 from tests.test_http_import import authorize
 
@@ -146,15 +152,24 @@ def test_free_text_redacts_inline_authorization_and_named_secrets() -> None:
 def test_urlencoded_body_redacts_prefixed_sensitive_fields() -> None:
     body = (
         "username=synthetic-user&password=synthetic-password&"
+        "matchingPassword=synthetic-confirm&passwordConfirmation=synthetic-copy&"
         "user_token=synthetic-csrf&access_token=synthetic-access&safe=visible"
     )
 
     redacted = redact_body(body)
 
     assert redacted == (
-        "username=synthetic-user&password=[REDACTED]&user_token=[REDACTED]&"
+        "username=synthetic-user&password=[REDACTED]&matchingPassword=[REDACTED]&"
+        "passwordConfirmation=[REDACTED]&user_token=[REDACTED]&"
         "access_token=[REDACTED]&safe=visible"
     )
+
+
+def test_sensitive_key_normalizes_password_components_without_broadening_others() -> None:
+    assert is_sensitive_key("matchingPassword")
+    assert is_sensitive_key("passwordConfirmation")
+    assert not is_sensitive_key("authorizationMatrix")
+    assert not is_sensitive_key("tokenType")
 
 
 def test_urls_redact_query_fragment_and_userinfo_credentials() -> None:

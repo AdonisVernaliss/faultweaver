@@ -19,6 +19,8 @@ _SENSITIVE_KEY = re.compile(
     r"(^|[_-])(api[_-]?key|authorization|cookie|pass(word|phrase)?|secret|token)(s)?$",
     re.IGNORECASE,
 )
+_PASSWORD_COMPONENT = re.compile(r"(^|[_-])pass(word|phrase)?(s)?([_-]|$)", re.IGNORECASE)
+_CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 _FORM_FIELD = re.compile(r"(?P<prefix>(?:^|[&\s])(?P<name>[^=&\s]+)=)[^&\s]*")
 _HEADER_SECRET = re.compile(
     r"(?im)^(authorization|cookie|proxy-authorization|set-cookie|x-api-key)\s*:\s*.*$"
@@ -36,7 +38,8 @@ def is_sensitive_header(name: str) -> bool:
 
 
 def is_sensitive_key(name: str) -> bool:
-    return bool(_SENSITIVE_KEY.search(name))
+    normalized = _CAMEL_CASE_BOUNDARY.sub("_", name)
+    return bool(_SENSITIVE_KEY.search(normalized) or _PASSWORD_COMPONENT.search(normalized))
 
 
 def redact_headers(headers: list[dict[str, str]]) -> list[dict[str, str]]:
