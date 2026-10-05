@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
 
   import { api } from '../lib/api';
+  import { createRequestPageLoader, mergeRequestPages } from '../lib/request-browser';
   import AssessmentPanel from '../lib/components/AssessmentPanel.svelte';
   import AttackChainPanel from '../lib/components/AttackChainPanel.svelte';
   import AttackSurfacePanel from '../lib/components/AttackSurfacePanel.svelte';
@@ -43,6 +44,14 @@
   let engagement = $state<EngagementDetail | null>(null);
   let scopes = $state<ScopeRule[]>([]);
   let requests = $state<Exchange[]>([]);
+  let requestCount = $state(0);
+  let requestTotal = $state(0);
+  let requestOffset = $state(0);
+  let requestFilter = $state('');
+  let requestSource = $state('');
+  let loadingRequests = $state(false);
+  const requestLoader = createRequestPageLoader();
+  let filterTimer: ReturnType<typeof setTimeout> | undefined;
   let identities = $state<Identity[]>([]);
   let matrix = $state<Matrix>({ identities: [], rows: [] });
   let candidates = $state<Candidate[]>([]);
@@ -96,6 +105,11 @@
   async function selectEngagement(id: string) {
     error = '';
     selected = null;
+    clearTimeout(filterTimer);
+    requestLoader.invalidate();
+    requestFilter = '';
+    requestSource = '';
+    loadingRequests = false;
     try {
       const [detail, scopeRules, assessmentItems, traffic, surfaceItems, batchItems, identityContexts, authMatrix, candidateItems, findingItems, evidenceItems, retestItems, chainItems, archivedChainItems] = await Promise.all([
         api<EngagementDetail>(`engagements/${id}`),
@@ -117,6 +131,8 @@
       scopes = scopeRules;
       assessments = assessmentItems;
       requests = traffic.items;
+      requestCount = requestTotal = traffic.total;
+      requestOffset = traffic.items.length;
       attackSurface = surfaceItems;
       importBatches = batchItems;
       identities = identityContexts;
@@ -133,11 +149,33 @@
     }
   }
 
-  async function refreshRequests(selectId?: string) {
+  async function refreshRequests(selectId?: string, append = false) {
     if (!engagement) return;
-    const traffic = await api<ExchangeList>(`engagements/${engagement.id}/requests`);
-    requests = traffic.items;
-    if (selectId) await selectRequest(selectId);
+    clearTimeout(filterTimer);
+    loadingRequests = true;
+    try {
+      const traffic = await requestLoader.load(engagement.id, requestFilter, requestSource, append ? requestOffset : 0);
+      if (!traffic) return;
+      requests = append ? mergeRequestPages(requests, traffic.items) : traffic.items;
+      requestOffset = (append ? requestOffset : 0) + traffic.items.length;
+      requestTotal = traffic.total;
+      requestCount = traffic.unfilteredTotal;
+      loadingRequests = false;
+      if (selectId) await selectRequest(selectId);
+    } catch (cause) {
+      loadingRequests = false;
+      error = cause instanceof Error ? cause.message : 'Could not load requests';
+    }
+  }
+
+  function changeRequestFilter(filter: string, source: string) {
+    requestFilter = filter;
+    requestSource = source;
+    requestLoader.invalidate();
+    clearTimeout(filterTimer);
+    loadingRequests = true;
+    requests = [];
+    filterTimer = setTimeout(() => void refreshRequests(), 200);
   }
 
   async function refreshImports() {
@@ -335,7 +373,7 @@
 <div class="app-shell">
   <Sidebar
     {engagement}
-    requestCount={requests.length}
+    {requestCount}
     assessmentCount={assessments.length}
     identityCount={identities.length}
     candidateCount={candidates.length}
@@ -415,6 +453,13 @@
           {loadingDetail}
           {replaying}
           {identities}
+          total={requestTotal}
+          filter={requestFilter}
+          sourceFilter={requestSource}
+          {loadingRequests}
+          hasMore={requestOffset < requestTotal}
+          onfilter={changeRequestFilter}
+          onmore={() => void refreshRequests(undefined, true)}
           onselect={selectRequest}
           onreplay={replaySelected}
           oncompare={() => (comparisonDialog = true)}

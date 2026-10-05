@@ -3,7 +3,7 @@ from typing import Annotated
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import ValidationError
-from sqlalchemy import func, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from faultweaver.database import get_session
@@ -108,9 +108,14 @@ def list_requests(
 ) -> ExchangeList:
     get_engagement_or_404(session, engagement_id)
     filters = [HttpExchange.engagement_id == engagement_id]
-    if q:
-        pattern = f"%{q}%"
-        filters.append(or_(HttpExchange.url.ilike(pattern), HttpExchange.path.ilike(pattern)))
+    if q and (needle := q.strip()):
+        filters.append(
+            or_(
+                HttpExchange.url.icontains(needle, autoescape=True),
+                HttpExchange.method.icontains(needle, autoescape=True),
+                cast(HttpExchange.response_status, String).icontains(needle, autoescape=True),
+            )
+        )
     if method:
         filters.append(HttpExchange.method == method.upper())
     if response_status is not None:
@@ -123,7 +128,7 @@ def list_requests(
         session.scalars(
             select(HttpExchange)
             .where(*filters)
-            .order_by(HttpExchange.created_at.desc())
+            .order_by(HttpExchange.created_at.desc(), HttpExchange.id.desc())
             .limit(limit)
             .offset(offset)
         )

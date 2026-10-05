@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { filterRequests, formatDuration, requestTarget, sourceLabel } from '../format';
+  import { formatDuration, requestTarget, sourceLabel } from '../format';
   import type { Exchange, ExchangeDetail, Identity } from '../types';
 
   let {
@@ -8,6 +8,13 @@
     loadingDetail,
     replaying,
     identities,
+    total,
+    filter,
+    sourceFilter,
+    loadingRequests,
+    hasMore,
+    onfilter,
+    onmore,
     onselect,
     onreplay,
     oncompare,
@@ -19,6 +26,13 @@
     loadingDetail: boolean;
     replaying: boolean;
     identities: Identity[];
+    total: number;
+    filter: string;
+    sourceFilter: string;
+    loadingRequests: boolean;
+    hasMore: boolean;
+    onfilter: (filter: string, source: string) => void;
+    onmore: () => void;
     onselect: (id: string) => void;
     onreplay: () => void;
     oncompare: () => void;
@@ -26,12 +40,8 @@
     onimport: () => void;
   } = $props();
 
-  let filter = $state('');
-  let sourceFilter = $state('');
   let detailTab = $state<'request' | 'response'>('request');
   let representation = $state<'raw' | 'headers'>('raw');
-
-  let filtered = $derived(filterRequests(requests, filter, sourceFilter));
 
   function rawResponse(exchange: ExchangeDetail): string {
     if (exchange.response_status === null) return 'No response has been captured yet.';
@@ -55,13 +65,12 @@
     <label class="search-field">
       <span aria-hidden="true">⌕</span>
       <span class="sr-only">Filter requests</span>
-      <input bind:value={filter} placeholder="Filter method, host, path, or status" />
+      <input value={filter} oninput={(event) => onfilter(event.currentTarget.value, sourceFilter)} placeholder="Filter method, host, path, or status" />
       <kbd>⌘K</kbd>
     </label>
-    <label class="source-filter"><span class="sr-only">Filter by import source</span><select bind:value={sourceFilter}><option value="">All sources</option><option value="crawler">Crawler</option><option value="raw_import">Raw HTTP</option><option value="har">HAR</option><option value="curl">cURL</option><option value="openapi">OpenAPI-generated</option><option value="replay">Replay</option></select></label>
+    <label class="source-filter"><span class="sr-only">Filter by import source</span><select value={sourceFilter} onchange={(event) => onfilter(filter, event.currentTarget.value)}><option value="">All sources</option><option value="crawler">Crawler</option><option value="raw_import">Raw HTTP</option><option value="har">HAR</option><option value="curl">cURL</option><option value="openapi">OpenAPI-generated</option><option value="replay">Replay</option></select></label>
     <div class="toolbar-stats">
-      <span><strong>{filtered.length}</strong> visible</span>
-      <span><strong>{requests.filter((request) => request.source === 'replay').length}</strong> replays</span>
+      <span aria-live="polite">{#if loadingRequests}Loading…{:else}<strong>{requests.length}</strong> of <strong>{total}</strong> shown{/if}</span>
     </div>
   </div>
 
@@ -71,7 +80,7 @@
         <span>METHOD</span><span>REQUEST TARGET</span><span>STATUS</span><span>SOURCE</span>
       </div>
       <div class="request-rows">
-        {#each filtered as request (request.id)}
+        {#each requests as request (request.id)}
           <button
             type="button"
             class:active={selected?.id === request.id}
@@ -88,13 +97,16 @@
         {:else}
           <div class="empty-table">
             <span class="empty-glyph">↗</span>
-            <strong>{requests.length ? 'No matching requests' : 'No traffic imported'}</strong>
-            <p>{requests.length ? 'Adjust the current filter.' : 'Import a scoped raw HTTP request to begin.'}</p>
-            {#if !requests.length}
+            <strong>{loadingRequests ? 'Loading requests…' : filter || sourceFilter ? 'No matching requests' : 'No traffic imported'}</strong>
+            <p>{filter || sourceFilter ? 'Adjust the current filter.' : 'Import a scoped raw HTTP request to begin.'}</p>
+            {#if !loadingRequests && !filter && !sourceFilter}
               <button class="button secondary" type="button" onclick={onimport}>Import first request</button>
             {/if}
           </div>
         {/each}
+        {#if hasMore && requests.length}
+          <button class="button secondary" type="button" onclick={onmore} disabled={loadingRequests}>{loadingRequests ? 'Loading…' : 'Load more requests'}</button>
+        {/if}
       </div>
     </div>
 

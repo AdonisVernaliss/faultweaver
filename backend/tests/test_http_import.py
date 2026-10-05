@@ -1,5 +1,8 @@
+from datetime import UTC, datetime
+
 from fastapi.testclient import TestClient
 
+from faultweaver.http_traffic.models import HttpExchange
 from tests.test_engagements_and_scope import create_engagement
 
 
@@ -69,3 +72,55 @@ def test_import_rejects_out_of_scope_and_malformed_requests(app_client: TestClie
 
     assert out_of_scope.status_code == 403
     assert malformed.status_code == 422
+
+
+def test_request_search_spans_pages_and_matches_literal_method_status_and_query(
+    app_client: TestClient,
+) -> None:
+    engagement_id = create_engagement(app_client)
+    with app_client.app.state.session_factory() as session:
+        for index in range(105):
+            session.add(
+                HttpExchange(
+                    engagement_id=engagement_id,
+                    source="har",
+                    method="GET",
+                    url=f"http://app.test/api/items/{index}",
+                    host="app.test",
+                    path=f"/api/items/{index}",
+                    response_status=200,
+                )
+            )
+        session.add(
+            HttpExchange(
+                id="older-special",
+                engagement_id=engagement_id,
+                source="curl",
+                method="POST",
+                url="http://app.test/api/archive?note=100%25_done",
+                host="app.test",
+                path="/api/archive",
+                query="note=100%25_done",
+                response_status=418,
+                created_at=datetime(2000, 1, 1, tzinfo=UTC),
+            )
+        )
+        session.commit()
+    prefix = f"/api/engagements/{engagement_id}/requests"
+    first = app_client.get(prefix).json()
+    second = app_client.get(prefix, params={"offset": 100}).json()
+    assert first["total"] == second["total"] == 106
+    assert len(first["items"]) == 100
+    assert len(second["items"]) == 6
+    assert second["items"][-1]["id"] == "older-special"
+    assert len({r["id"] for r in first["items"] + second["items"]}) == 106
+    for query in ["post", "418", "%25_", "archive"]:
+        result = app_client.get(prefix, params={"q": query}).json()
+        assert [r["id"] for r in result["items"]] == ["older-special"]
+    assert app_client.get(prefix, params={"q": "_"}).json()["total"] == 1
+    assert app_client.get(prefix, params={"q": "post", "source": "har"}).json()["total"] == 0
+    other = create_engagement(app_client)
+    assert (
+        app_client.get(f"/api/engagements/{other}/requests", params={"q": "418"}).json()["total"]
+        == 0
+    )
