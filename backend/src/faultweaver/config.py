@@ -14,6 +14,9 @@ class Settings:
     max_import_entries: int = 5_000
     max_import_request_body_bytes: int = 1_000_000
     max_import_response_body_bytes: int = 1_000_000
+    storage_key_provider: str = "native"
+    master_key_file: Path | None = None
+    keyring_account: str = "local-storage-v1"
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -24,4 +27,11 @@ class Settings:
             allowed_origins=tuple(
                 origin.strip() for origin in origins.split(",") if origin.strip()
             ),
+            storage_key_provider=environ.get("FAULTWEAVER_KEY_PROVIDER", "native"),
+            master_key_file=(
+                Path(environ["FAULTWEAVER_MASTER_KEY_FILE"])
+                if environ.get("FAULTWEAVER_MASTER_KEY_FILE")
+                else None
+            ),
+            keyring_account=environ.get("FAULTWEAVER_KEYRING_ACCOUNT", "local-storage-v1"),
         )

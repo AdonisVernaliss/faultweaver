@@ -8,6 +8,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DatabaseError
+from sqlalchemy.orm import sessionmaker
 
 from faultweaver import __version__
 from faultweaver.analysis.router import router as analysis_router
@@ -15,35 +17,44 @@ from faultweaver.assessments.router import router as assessments_router
 from faultweaver.assessments.runner import AssessmentManager
 from faultweaver.attack_chains.router import router as attack_chains_router
 from faultweaver.config import Settings
-from faultweaver.database import create_session_factory, get_session, session_dependency
+from faultweaver.database import create_storage_engine, get_session, session_dependency
 from faultweaver.engagements.router import router as engagements_router
 from faultweaver.findings.router import router as findings_router
 from faultweaver.http_traffic.router import router as http_traffic_router
 from faultweaver.identities.router import router as identities_router
 from faultweaver.imports.router import router as imports_router
-from faultweaver.migrations.runner import upgrade_database
 from faultweaver.redaction import install_log_redaction, sanitize_for_log
 from faultweaver.scope.router import router as scope_router
+from faultweaver.storage.configuration import database_path, key_provider_for
+from faultweaver.storage.keys import SecretKeyProvider, StorageError
+from faultweaver.storage.lifecycle import prepare_storage
+from faultweaver.storage.locking import storage_lock
 
 
 def create_app(
     settings: Settings | None = None,
     *,
     http_transport: httpx.BaseTransport | None = None,
+    key_provider: SecretKeyProvider | None = None,
 ) -> FastAPI:
     resolved_settings = settings or Settings.from_environment()
-    session_factory = create_session_factory(resolved_settings.database_url)
+    session_factory = sessionmaker(autoflush=False, expire_on_commit=False)
     assessment_manager = AssessmentManager(session_factory, transport=http_transport)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        upgrade_database(resolved_settings.database_url)
         install_log_redaction()
-        assessment_manager.recover_stale()
-        try:
-            yield
-        finally:
-            assessment_manager.shutdown()
+        key = (key_provider or key_provider_for(resolved_settings)).load()
+        engine = create_storage_engine(resolved_settings.database_url, key)
+        with storage_lock(database_path(resolved_settings.database_url)):
+            try:
+                prepare_storage(engine, resolved_settings.database_url, key)
+                session_factory.configure(bind=engine)
+                assessment_manager.recover_stale()
+                yield
+            finally:
+                assessment_manager.shutdown()
+                engine.dispose()
 
     app = FastAPI(
         title="Faultweaver API",
@@ -70,6 +81,16 @@ def create_app(
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": errors},
+        )
+
+    @app.exception_handler(StorageError)
+    @app.exception_handler(DatabaseError)
+    async def storage_error_handler(_: object, error: Exception) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "detail": "Protected storage is unavailable; check the key and database integrity"
+            },
         )
 
     @app.get("/api/health", tags=["system"])

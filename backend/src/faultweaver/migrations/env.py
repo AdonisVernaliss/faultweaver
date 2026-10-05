@@ -13,6 +13,7 @@ from faultweaver.http_traffic import models as http_models  # noqa: F401
 from faultweaver.identities import models as identity_models  # noqa: F401
 from faultweaver.imports import models as import_models  # noqa: F401
 from faultweaver.scope import models as scope_models  # noqa: F401
+from faultweaver.storage import models as storage_models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
@@ -34,6 +35,14 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    supplied = config.attributes.get("connection")
+    if supplied is not None:
+        context.configure(
+            connection=supplied, target_metadata=target_metadata, render_as_batch=True
+        )
+        with context.begin_transaction():
+            context.run_migrations()
+        return
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

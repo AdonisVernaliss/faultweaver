@@ -39,7 +39,11 @@ class KeyMaterial:
     def parse(cls, value: str) -> KeyMaterial:
         try:
             record = json.loads(value)
-            if not isinstance(record, dict) or record.get("version") != 1:
+            if (
+                not isinstance(record, dict)
+                or type(record.get("version")) is not int
+                or record["version"] != 1
+            ):
                 raise StorageError("Unsupported storage key format version")
             if set(record) != {"version", "key"} or not isinstance(record["key"], str):
                 raise ValueError
