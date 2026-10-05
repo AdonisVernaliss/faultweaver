@@ -122,7 +122,8 @@ logic was added.
   full Chromium HAR and responsive walkthrough are manual compatibility checks,
   not ordinary CI.
 - Compatibility is established only for DVWA 2.5 at the pinned release commit
-  and for the workflows documented here. Mutillidae II remains unvalidated.
+  and for the workflows documented here. Separate
+  [Mutillidae II validation](mutillidae.md) has its own bounded coverage matrix.
 - Replay credentials and captured traffic remain unencrypted at rest in the
   local SQLite database. The database and any raw local capture must be treated
   as sensitive and removed when no longer needed.

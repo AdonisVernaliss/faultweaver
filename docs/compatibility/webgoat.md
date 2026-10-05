@@ -139,4 +139,5 @@ Docker build uses Node 22.
 - Replay credentials and captured traffic remain unencrypted at rest in local
   SQLite. Raw captures and temporary test databases must be treated as sensitive.
 - Results apply to WebGoat 2026.4 at the pinned digest and the documented
-  workflows. Mutillidae II remains unvalidated.
+  workflows. Separate [Mutillidae II validation](mutillidae.md) has its own
+  bounded coverage matrix.

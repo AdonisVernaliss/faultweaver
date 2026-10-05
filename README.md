@@ -52,9 +52,13 @@ Faultweaver is pre-release software. The current vertical slice includes:
 - validate ordinary registration traffic, compound password redaction,
   session-backed JSON replay, JSON/HTML response comparison, and responsive
   Request Explorer behavior against stock OWASP WebGoat 2026.4.
+- validate traditional query-routed HTML, GET/POST forms, empty multipart
+  representation, session replay, large HTML comparison, and responsive
+  workflows against the official OWASP Mutillidae II image reporting 2.12.8.
 
-Reporting/export, credential encryption, and additional external lab
-compatibility remain later milestones.
+The four-lab compatibility milestone covers Juice Shop, DVWA, WebGoat, and
+Mutillidae II within their documented limits. Local secret-storage hardening
+is next; reporting/export and release readiness remain later milestones.
 
 ## Architecture
 
@@ -113,6 +117,7 @@ make backend-lint backend-test
 make demo-lint demo-test
 make frontend-check frontend-test frontend-build
 make compatibility-juice-shop
+make compatibility-dvwa compatibility-webgoat compatibility-mutillidae
 ```
 
 ## Deliberately vulnerable demo SaaS
@@ -209,6 +214,29 @@ The validation uses ordinary synthetic registration and lesson-menu traffic.
 It does not establish lesson, exploit, or WebWolf coverage. See
 [WebGoat compatibility](docs/compatibility/webgoat.md) for the exact image
 digest, observed matrix, upstream browser errors, and limitations.
+
+## OWASP Mutillidae II compatibility
+
+Faultweaver has been validated against the unmodified official Mutillidae II
+images for bounded discovery, query-routed HTML and form metadata, real HAR
+and cURL GET/POST ingestion, repeated/encoded/empty parameters, empty multipart
+representation, normal session replay, HTML comparison, findings/evidence,
+restart persistence, and responsive browser use. The web image tag is
+`www-2.12.7`, but its application reports **2.12.8**; both images are digest-pinned.
+
+Only `127.0.0.1:4380` is published; the database has no host port. The isolated
+runner removes its containers, network, and database volume after testing:
+
+```bash
+make compatibility-mutillidae
+```
+
+The images require amd64 support/emulation. No vulnerability exercise or actual
+file upload is required. The full browser capture also led to a generic Request
+Explorer fix: search spans all stored requests, with bounded pagination instead
+of filtering only the first 100. See
+[Mutillidae II compatibility](docs/compatibility/mutillidae.md) for image digests,
+the exact matrix, capture counts, partial coverage, and performance limitations.
 
 ## Baseline assessment safety model
 
