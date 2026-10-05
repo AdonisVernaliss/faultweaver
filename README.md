@@ -49,6 +49,9 @@ Faultweaver is pre-release software. The current vertical slice includes:
 - validate classic HTML form discovery, URL-encoded request handling, session
   replay, response comparison, findings/evidence, and responsive UI behavior
   against stock Damn Vulnerable Web Application 2.5.
+- validate ordinary registration traffic, compound password redaction,
+  session-backed JSON replay, JSON/HTML response comparison, and responsive
+  Request Explorer behavior against stock OWASP WebGoat 2026.4.
 
 Reporting/export, credential encryption, and additional external lab
 compatibility remain later milestones.
@@ -186,6 +189,26 @@ submit forms, no vulnerability module is exploited, and no artificial Attack
 Chain or fixed-state retest is created. See
 [DVWA compatibility](docs/compatibility/dvwa.md) for the exact image digests,
 observed matrix, workflow, and limitations.
+
+## OWASP WebGoat compatibility
+
+Faultweaver has been validated locally against stock WebGoat 2026.4 for bounded
+anonymous discovery, login/registration form metadata, real HAR and cURL
+GET/POST ingestion, cookie-backed identities, authenticated JSON replay,
+JSON/HTML response comparison, authorization-matrix evidence, Candidate
+promotion, findings/evidence, restart persistence, and responsive browser use.
+
+The pinned compatibility service publishes only on `127.0.0.1:4080`; WebWolf
+has no published port. Run the isolated, ephemeral workflow with:
+
+```bash
+make compatibility-webgoat
+```
+
+The validation uses ordinary synthetic registration and lesson-menu traffic.
+It does not establish lesson, exploit, or WebWolf coverage. See
+[WebGoat compatibility](docs/compatibility/webgoat.md) for the exact image
+digest, observed matrix, upstream browser errors, and limitations.
 
 ## Baseline assessment safety model
 
