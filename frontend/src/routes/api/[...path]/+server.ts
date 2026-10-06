@@ -24,3 +24,6 @@ async function proxy({ request, params, url }: Parameters<RequestHandler>[0]): P
 
 export const GET: RequestHandler = proxy;
 export const POST: RequestHandler = proxy;
+export const PATCH: RequestHandler = proxy;
+export const PUT: RequestHandler = proxy;
+export const DELETE: RequestHandler = proxy;

@@ -26,12 +26,11 @@
     evidenceCount: number;
     retestCount: number;
     attackChainCount: number;
-    activeView: 'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains';
-    onview: (view: 'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains') => void;
+    activeView: 'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains' | 'reports';
+    onview: (view: 'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains' | 'reports') => void;
     oncreate: () => void;
   } = $props();
 
-  const futureSections = ['Report'];
 </script>
 
 <aside class="sidebar">
@@ -70,11 +69,7 @@
     <button aria-label="Evidence" class:active={activeView === 'evidence'} class="nav-item" type="button" onclick={() => onview('evidence')}><span class="nav-glyph">▣</span><span>Evidence</span><em>{evidenceCount}</em></button>
     <button aria-label="Retests" class:active={activeView === 'retests'} class="nav-item" type="button" onclick={() => onview('retests')}><span class="nav-glyph">↻</span><span>Retests</span><em>{retestCount}</em></button>
     <button aria-label="Attack Chains" class:active={activeView === 'attack-chains'} class="nav-item" type="button" onclick={() => onview('attack-chains')}><span class="nav-glyph">⌁</span><span>Attack Chains</span><em>{attackChainCount}</em></button>
-    {#each futureSections as section}
-      <span class="nav-item disabled" aria-disabled="true">
-        <span class="nav-glyph">·</span><span>{section}</span><small>LATER</small>
-      </span>
-    {/each}
+    <button aria-label="Report" class:active={activeView === 'reports'} class="nav-item" type="button" onclick={() => onview('reports')} aria-current={activeView === 'reports' ? 'page' : undefined}><span class="nav-glyph">▤</span><span>Report</span></button>
   </nav>
 
   <div class="sidebar-footer">

@@ -4,12 +4,14 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, load_only
 
+from faultweaver.attack_chains.models import AttackChain
 from faultweaver.database import get_session
 from faultweaver.engagements.models import utc_now
 from faultweaver.engagements.router import get_engagement_or_404
+from faultweaver.findings.models import Evidence, Finding
 from faultweaver.findings.service import allocate_display_id
 from faultweaver.reports.builder import build_document, canonical_json, safe_data
 from faultweaver.reports.models import Report, ReportRevision
@@ -95,6 +97,59 @@ def list_reports(engagement_id: str, session: SessionDep, include_archived: bool
     if not include_archived:
         query = query.where(Report.status != "Archived")
     return list(session.scalars(query.order_by(Report.created_at.desc(), Report.id)))
+
+
+@router.get(PREFIX + "/options")
+def report_options(engagement_id: str, session: SessionDep):
+    get_engagement_or_404(session, engagement_id)
+    findings = session.execute(
+        select(
+            Finding.id,
+            Finding.display_id,
+            Finding.title,
+            Finding.severity,
+            Finding.status,
+            Finding.archived_at,
+            func.length(Finding.description).label("description_length"),
+            func.length(Finding.impact).label("impact_length"),
+            func.length(Finding.remediation).label("remediation_length"),
+            func.json_array_length(Finding.reproduction_steps).label("step_count"),
+        )
+        .where(Finding.engagement_id == engagement_id)
+        .order_by(Finding.sequence_number)
+    ).mappings()
+    with_evidence = set(
+        session.scalars(select(Evidence.finding_id).where(Evidence.engagement_id == engagement_id))
+    )
+    options = []
+    for item in findings:
+        gaps = [
+            label
+            for field, label in [
+                ("description_length", "Description"),
+                ("impact_length", "Impact"),
+                ("remediation_length", "Remediation"),
+                ("step_count", "Reproduction steps"),
+            ]
+            if not item[field]
+        ]
+        if item["id"] not in with_evidence:
+            gaps.append("Evidence")
+        options.append(
+            {
+                **{
+                    name: item[name]
+                    for name in ("id", "display_id", "title", "severity", "status", "archived_at")
+                },
+                "gaps": gaps,
+            }
+        )
+    chains = session.execute(
+        select(AttackChain.id, AttackChain.display_id, AttackChain.title, AttackChain.status)
+        .where(AttackChain.engagement_id == engagement_id)
+        .order_by(AttackChain.sequence_number)
+    ).mappings()
+    return safe_data({"findings": options, "attack_chains": [dict(item) for item in chains]})
 
 
 @router.get(PREFIX + "/{report_id}", response_model=ReportResponse)

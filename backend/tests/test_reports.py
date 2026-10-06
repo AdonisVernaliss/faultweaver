@@ -276,6 +276,12 @@ def test_report_schema_contract(app_client, report_scenario):
     schema = app_client.get("/api/report-schema").json()
     assert schema["properties"]["report_schema_version"]["const"] == "1.0"
     assert schema["additionalProperties"] is False
+    options = app_client.get(report_scenario["base"] + "/options").json()
+    assert len(options["findings"]) == 3
+    assert options["findings"][0]["gaps"] == ["Evidence"]
+    assert "description" not in options["findings"][0]
+    assert len(options["attack_chains"]) == 1
+    assert app_client.get("/api/engagements/other/reports/options").json()["attack_chains"] == []
     assert set(schema["required"]) == {
         "application_version",
         "report",

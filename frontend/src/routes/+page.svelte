@@ -16,6 +16,7 @@
   import ImportDialog from '../lib/components/ImportDialog.svelte';
   import NewAssessmentDialog from '../lib/components/NewAssessmentDialog.svelte';
   import RequestExplorer from '../lib/components/RequestExplorer.svelte';
+  import ReportPanel from '../lib/components/ReportPanel.svelte';
   import RetestPanel from '../lib/components/RetestPanel.svelte';
   import ScopeDialog from '../lib/components/ScopeDialog.svelte';
   import Sidebar from '../lib/components/Sidebar.svelte';
@@ -69,7 +70,8 @@
   let focusedAssessmentId = $state('');
   let focusedCandidateId = $state('');
   let selected = $state<ExchangeDetail | null>(null);
-  let activeView = $state<'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains'>('assessments');
+  let activeView = $state<'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains' | 'reports'>('assessments');
+  let reportDirty = $state(false);
   let loading = $state(true);
   let loadingDetail = $state(false);
   let replaying = $state(false);
@@ -105,6 +107,8 @@
   }
 
   async function selectEngagement(id: string) {
+    if (reportDirty && !window.confirm('Discard unsaved report edits and switch Engagement?')) return;
+    reportDirty = false;
     error = '';
     selected = null;
     clearTimeout(filterTimer);
@@ -385,7 +389,11 @@
     attackChainCount={attackChains.filter((item) => item.status !== 'Archived').length}
     attackSurfaceCount={attackSurface.length}
     {activeView}
-    onview={(view) => (activeView = view)}
+    onview={(view) => {
+      if (view !== activeView && reportDirty && !window.confirm('Discard unsaved report edits and leave Report?')) return;
+      if (view !== activeView) reportDirty = false;
+      activeView = view;
+    }}
     oncreate={() => (createDialog = true)}
   />
 
@@ -395,7 +403,7 @@
       {#if engagement}
         <label class="engagement-select">
           <span class="sr-only">Current engagement</span>
-          <select value={engagement.id} onchange={(event) => selectEngagement(event.currentTarget.value)}>
+          <select value={engagement.id} onchange={async (event) => { const select = event.currentTarget; await selectEngagement(select.value); select.value = engagement?.id ?? ''; }}>
             {#each engagements as item}
               <option value={item.id}>{item.name}</option>
             {/each}
@@ -482,6 +490,8 @@
         <EvidencePanel engagementId={engagement.id} {evidence} {findings} />
       {:else if activeView === 'retests'}
         <RetestPanel {retests} {findings} onopen={openFinding} />
+      {:else if activeView === 'reports'}
+        {#key engagement.id}<ReportPanel engagementId={engagement.id} ondirty={(dirty) => (reportDirty = dirty)} />{/key}
       {:else}
         <AttackChainPanel engagementId={engagement.id} chains={attackChains} {findings} {evidence} focusId={focusedAttackChainId} onchanged={refreshChainsAndFindings} onfinding={openFinding} />
       {/if}
