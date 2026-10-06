@@ -147,7 +147,7 @@ def test_legacy_migration_verifies_rows_backup_and_restart(tmp_path: Path) -> No
             == 201
         )
         with client.app.state.session_factory() as session:
-            assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
+            assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
 
 
 def test_failed_replacement_preserves_original_and_can_retry(tmp_path: Path, monkeypatch) -> None:

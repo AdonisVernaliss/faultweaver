@@ -32,6 +32,7 @@ class EngagementSequence(Base):
     next_attack_chain: Mapped[int] = mapped_column(Integer, default=1)
     next_import: Mapped[int] = mapped_column(Integer, default=1)
     next_assessment: Mapped[int] = mapped_column(Integer, default=1)
+    next_report: Mapped[int] = mapped_column(Integer, default=1)
 
 
 class Finding(Base):

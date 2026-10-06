@@ -12,6 +12,7 @@ from faultweaver.findings import models as finding_models  # noqa: F401
 from faultweaver.http_traffic import models as http_models  # noqa: F401
 from faultweaver.identities import models as identity_models  # noqa: F401
 from faultweaver.imports import models as import_models  # noqa: F401
+from faultweaver.reports import models as report_models  # noqa: F401
 from faultweaver.scope import models as scope_models  # noqa: F401
 from faultweaver.storage import models as storage_models  # noqa: F401
 

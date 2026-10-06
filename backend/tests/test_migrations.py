@@ -38,13 +38,15 @@ def test_migrations_create_a_fresh_database(tmp_path: Path) -> None:
         "import_batches",
         "operator_notes",
         "response_comparisons",
+        "reports",
+        "report_revisions",
         "retest_evidence",
         "retests",
         "scope_rules",
         "storage_metadata",
     }
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
 
 
 def test_baseline_adopts_the_existing_schema_without_losing_data(tmp_path: Path) -> None:
@@ -63,7 +65,7 @@ def test_baseline_adopts_the_existing_schema_without_losing_data(tmp_path: Path)
         preserved = session.get(Engagement, "legacy-engagement")
         assert preserved is not None
         assert preserved.name == "Preserved engagement"
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
         anonymous_count = session.scalar(
             text(
                 "SELECT count(*) FROM identities "
@@ -94,7 +96,7 @@ def test_0002_upgrades_to_latest_without_losing_data(tmp_path: Path) -> None:
 
     with Session(engine) as session:
         assert session.get(Engagement, "v2-engagement") is not None
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
         assert (
             session.scalar(
                 text(
@@ -131,7 +133,7 @@ def test_0003_upgrades_to_latest_without_losing_sequence_data(tmp_path: Path) ->
             )
         ).one()
         assert sequence == (7, 9, 3, 1, 1)
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
 
 
 def test_0004_upgrades_to_latest_and_backfills_attack_surface(tmp_path: Path) -> None:
@@ -181,7 +183,7 @@ def test_0004_upgrades_to_latest_and_backfills_attack_surface(tmp_path: Path) ->
         assert sequence == (7, 9, 3, 4, 1)
         assert endpoint == ("GET", "example.test", "/api/users/17")
         assert endpoint_id is not None
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
 
 
 def test_0005_upgrades_to_latest_and_preserves_existing_candidates(tmp_path: Path) -> None:
@@ -280,4 +282,4 @@ def test_0005_upgrades_to_latest_and_preserves_existing_candidates(tmp_path: Pat
             )
             == 3
         )
-        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0007"
+        assert session.scalar(text("SELECT version_num FROM alembic_version")) == "0008"

@@ -24,6 +24,7 @@ from faultweaver.http_traffic.router import router as http_traffic_router
 from faultweaver.identities.router import router as identities_router
 from faultweaver.imports.router import router as imports_router
 from faultweaver.redaction import install_log_redaction, sanitize_for_log
+from faultweaver.reports.router import router as reports_router
 from faultweaver.scope.router import router as scope_router
 from faultweaver.storage.configuration import database_path, key_provider_for
 from faultweaver.storage.keys import SecretKeyProvider, StorageError
@@ -106,6 +107,7 @@ def create_app(
     app.include_router(attack_chains_router)
     app.include_router(imports_router)
     app.include_router(assessments_router)
+    app.include_router(reports_router)
 
     return app
 
