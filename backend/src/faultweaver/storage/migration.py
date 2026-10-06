@@ -76,11 +76,15 @@ def migrate_plaintext(database: Path, key: KeyMaterial, backup: Path) -> dict[st
             uri = "file:" + quote(str(database.absolute()), safe="/") + "?mode=rw"
             source = dbapi2.connect(uri, uri=True, timeout=0, isolation_level=None)
             source.execute("PRAGMA temp_store = MEMORY")
-            source.execute("PRAGMA locking_mode = EXCLUSIVE")
             result = source.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
             if result and result[0] != 0:
                 raise StorageError("Legacy database is busy; stop all database users")
-            source.execute("PRAGMA journal_mode = DELETE")
+            # Let SQLite open/retire an existing shared WAL index before entering
+            # exclusive mode, which otherwise uses an in-memory index and can
+            # leave a crash-created SHM file behind.
+            if source.execute("PRAGMA journal_mode = DELETE").fetchone() != ("delete",):
+                raise StorageError("Legacy WAL could not be closed safely")
+            source.execute("PRAGMA locking_mode = EXCLUSIVE")
             source.execute("BEGIN EXCLUSIVE")
             if source.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
                 raise StorageError("Legacy database integrity check failed")

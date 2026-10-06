@@ -13,7 +13,6 @@ COPY src ./src
 RUN uv sync --locked --no-dev
 
 RUN mkdir -p /data && chown -R nobody:nogroup /data
-USER nobody
 
 EXPOSE 8000
-CMD ["uvicorn", "faultweaver.app:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["python", "-m", "faultweaver.storage.container"]

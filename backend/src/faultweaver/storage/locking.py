@@ -8,10 +8,10 @@ from faultweaver.storage.keys import StorageError
 @contextmanager
 def storage_lock(database: Path):
     """One application or offline operation per database, including schema upgrades."""
-    database.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
     descriptor = None
     try:
+        database.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         descriptor = os.open(str(database) + ".lock", flags, 0o600)
         if os.name == "posix":
             import fcntl
@@ -23,7 +23,7 @@ def storage_lock(database: Path):
             msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
         else:
             raise StorageError("Database locking is unavailable on this platform")
-    except OSError:
+    except (OSError, StorageError):
         if descriptor is not None:
             os.close(descriptor)
         raise StorageError("Storage is busy or unavailable; stop other database users") from None

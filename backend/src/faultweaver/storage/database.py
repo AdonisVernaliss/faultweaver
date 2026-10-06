@@ -10,10 +10,13 @@ SQLITE_HEADER = b"SQLite format 3\0"
 
 
 def is_plaintext_database(path: Path) -> bool:
-    if not path.exists() or path.stat().st_size == 0:
-        return False
-    with path.open("rb") as source:
-        return source.read(16) == SQLITE_HEADER
+    try:
+        if not path.exists() or path.stat().st_size == 0:
+            return False
+        with path.open("rb") as source:
+            return source.read(16) == SQLITE_HEADER
+    except OSError:
+        raise StorageError("Database file is unavailable; check storage permissions") from None
 
 
 def open_database(
@@ -22,16 +25,18 @@ def open_database(
     """Open authenticated SQLCipher format 4; never retry with plaintext SQLite."""
     if key is None:
         raise StorageError("The existing encryption key is required")
-    if is_plaintext_database(path):
-        raise StorageError("Legacy plaintext database requires an explicit storage migration")
     if path.is_symlink():
         raise StorageError("Database path must not be a symbolic link")
+    if is_plaintext_database(path):
+        raise StorageError("Legacy plaintext database requires an explicit storage migration")
     if not readonly:
-        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         try:
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError:
             pass
+        except OSError:
+            raise StorageError("Database file is unavailable; check storage permissions") from None
         else:
             os.close(descriptor)
     connection = None

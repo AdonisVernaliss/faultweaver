@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from faultweaver.config import Settings
 from faultweaver.storage.keys import (
@@ -12,8 +13,20 @@ from faultweaver.storage.keys import (
 
 
 def database_path(database_url: str) -> Path:
-    url = make_url(database_url)
-    if url.drivername != "sqlite" or not url.database or url.database == ":memory:" or url.query:
+    try:
+        url = make_url(database_url)
+    except (ArgumentError, ValueError):
+        raise StorageError("Protected storage requires a local SQLite file URL") from None
+    if (
+        url.drivername != "sqlite"
+        or not url.database
+        or url.database == ":memory:"
+        or url.query
+        or url.host
+        or url.username
+        or url.password
+        or url.port
+    ):
         raise StorageError("Protected storage requires a local SQLite file URL")
     return Path(url.database).absolute()
 

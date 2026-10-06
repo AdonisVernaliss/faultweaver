@@ -4,6 +4,8 @@ import os
 import secrets
 import shutil
 import sqlite3
+import subprocess
+import sys
 from contextlib import closing
 from pathlib import Path
 
@@ -19,7 +21,7 @@ from faultweaver.http_traffic.models import HttpExchange
 from faultweaver.identities.models import Identity
 from faultweaver.migrations.runner import upgrade_database
 from faultweaver.storage.cli import main
-from faultweaver.storage.configuration import key_provider_for
+from faultweaver.storage.configuration import database_path, key_provider_for
 from faultweaver.storage.database import check_integrity, open_database
 from faultweaver.storage.keys import FileKeyProvider, KeyMaterial, MemoryKeyProvider, StorageError
 from faultweaver.storage.locking import storage_lock
@@ -358,3 +360,57 @@ def test_missing_provider_key_never_creates_or_replaces_database(tmp_path: Path)
     ):
         pass
     assert path.read_bytes() == before
+
+
+def test_crashed_legacy_wal_is_consolidated_before_conversion(tmp_path: Path):
+    path = tmp_path / "data" / "legacy.db"
+    seed_legacy(path, secrets.token_urlsafe(40))
+    marker = secrets.token_urlsafe(40)
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sqlite3, sys, os; db=sqlite3.connect(sys.argv[1]); "
+            "db.execute('PRAGMA journal_mode=WAL'); "
+            "db.execute('UPDATE engagements SET description=?', (sys.argv[2],)); "
+            "db.commit(); os._exit(0)",
+            str(path),
+            marker,
+        ],
+        check=True,
+    )
+    assert marker.encode() in Path(str(path) + "-wal").read_bytes()
+    key = KeyMaterial.generate()
+    migrate_plaintext(path, key, tmp_path / "backups" / "legacy.db")
+    with closing(open_database(path, key)) as db:
+        assert db.execute("SELECT description FROM engagements").fetchone()[0] == marker
+    assert all(marker.encode() not in item.read_bytes() for item in path.parent.iterdir())
+    assert not Path(str(path) + "-wal").exists()
+    assert not Path(str(path) + "-shm").exists()
+
+
+def test_failed_row_verification_never_replaces_legacy(tmp_path: Path, monkeypatch):
+    path = tmp_path / "data" / "legacy.db"
+    seed_legacy(path, secrets.token_urlsafe(40))
+    before = path.read_bytes()
+    calls = 0
+
+    def mismatch(db):
+        nonlocal calls
+        calls += 1
+        digest, counts = logical_fingerprint(db)
+        return (digest if calls == 1 else "mismatch", counts)
+
+    monkeypatch.setattr("faultweaver.storage.migration.logical_fingerprint", mismatch)
+    with pytest.raises(StorageError, match="verification failed"):
+        migrate_plaintext(path, KeyMaterial.generate(), tmp_path / "backup.db")
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "url", ["bad-secret-url", "sqlite://user:secret@host/data.db", "sqlite:///:memory:"]
+)
+def test_invalid_storage_location_is_rejected_without_echo(url):
+    with pytest.raises(StorageError) as error:
+        database_path(url)
+    assert "secret" not in str(error.value)

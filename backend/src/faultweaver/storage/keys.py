@@ -82,6 +82,10 @@ class FileKeyProvider:
     database: Path
 
     def load(self) -> KeyMaterial:
+        if os.name != "posix":
+            raise StorageError(
+                "Private file keys require POSIX permissions; use the native provider"
+            )
         ensure_key_location(self.path, self.database)
         descriptor = None
         try:
@@ -110,6 +114,8 @@ class FileKeyProvider:
 def generate_key_file(
     path: Path, *, database: Path, material: KeyMaterial | None = None
 ) -> KeyMaterial:
+    if os.name != "posix":
+        raise StorageError("Private file keys require POSIX permissions; use the native provider")
     ensure_key_location(path, database)
     key = material or KeyMaterial.generate()
     descriptor = None
@@ -123,6 +129,9 @@ def generate_key_file(
             output.write(key.serialize() + "\n")
             output.flush()
             os.fsync(output.fileno())
+        from faultweaver.storage.locking import sync_directory
+
+        sync_directory(path.parent)
     except FileExistsError:
         raise StorageError("Storage key file already exists; it will not be replaced") from None
     except OSError:
