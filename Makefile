@@ -1,7 +1,28 @@
-.PHONY: backend-install backend-test backend-lint demo-lint demo-test frontend-install frontend-check frontend-test frontend-build compatibility-juice-shop compatibility-juice-shop-up compatibility-juice-shop-test compatibility-juice-shop-down compatibility-dvwa compatibility-webgoat
+.PHONY: help install test validate up down demo-up backend-install backend-test backend-lint demo-lint demo-test frontend-install frontend-check frontend-test frontend-build compatibility-juice-shop compatibility-juice-shop-up compatibility-juice-shop-test compatibility-juice-shop-down compatibility-dvwa compatibility-webgoat
+
+help:
+	@echo "install: locked development dependencies | test: backend/demo/frontend tests"
+	@echo "validate: lint, types, tests, production frontend build (no lab traffic)"
+	@echo "up: local workspace | demo-up: workspace plus vulnerable local demo"
+	@echo "down: stop local services and retain data | compatibility-*: opt-in local labs"
+
+install: backend-install frontend-install
+
+test: backend-test demo-test frontend-test
+
+validate: backend-lint demo-lint frontend-check test frontend-build
+
+up:
+	docker compose up --build --detach --wait
+
+demo-up:
+	docker compose --profile demo up --build --detach --wait
+
+down:
+	docker compose --profile demo down
 
 backend-install:
-	uv sync --project backend --all-groups
+	uv sync --locked --project backend --all-groups
 
 backend-test:
 	uv run --project backend python -m pytest -q backend/tests

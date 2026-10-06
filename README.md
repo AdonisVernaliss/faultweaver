@@ -1,13 +1,59 @@
 # Faultweaver
 
-Faultweaver is a local-first Web/API penetration-testing engine and engagement workspace. It is designed around a deliberate workflow: discover and import HTTP traffic, perform conservative analysis, verify candidate findings manually, preserve evidence, connect confirmed issues into attack chains, retest, and report.
+Faultweaver is a local Web & API penetration-testing workspace that combines attack-surface discovery, HTTP analysis, identity-aware testing, manual verification, evidence, attack chains and reporting.
 
 Faultweaver is not a promise of complete vulnerability coverage. Automated observations remain candidates until an operator verifies them.
 
 > [!WARNING]
 > Use Faultweaver only against systems you own or have explicit authorization to test.
 
-## Current status
+## Start here
+
+Pre-release, single-operator software. Run locally; the workspace has no user
+authentication and must not be exposed to a shared network or the public internet.
+
+- **Discovery & traffic:** bounded URL baselines; inert HAR, cURL, raw HTTP and
+  OpenAPI import; Request Explorer and observed/declared Attack Surface.
+- **Verification:** scoped replay, explicit Identity contexts, normalized response
+  comparison and an evidence-based authorization matrix. Candidates require review.
+- **Findings & Evidence:** operator-authored confirmed Findings, immutable
+  redacted snapshots, ordered Attack Chains and separate Retest records.
+- **Reporting:** editable `REP-###` drafts, immutable revisions, offline HTML,
+  Markdown and schema-versioned JSON. No automatic business conclusions.
+- **Local protection:** independently keyed SQLCipher storage, conservative
+  network bounds and redaction. Downloaded reports are confidential plaintext.
+
+[Quick Start](#quick-start) · [Reporting guide](docs/reporting.md) ·
+[Storage and recovery](docs/secret-storage.md) · [Security](SECURITY.md) ·
+[Release validation](docs/release-validation.md)
+
+## Quick Start
+
+Prerequisites: Docker with Compose, Python 3.13+ and `uv`. Native development
+also needs Node.js 22.17+ and npm. The first key is created explicitly, not by
+application startup.
+
+```bash
+uv sync --locked --project backend --all-groups
+# Choose a NEW absolute private directory outside every Git repository/data volume.
+export FAULTWEAVER_KEY_PROVIDER=file
+export FAULTWEAVER_MASTER_KEY_FILE=/absolute/private/faultweaver-keys/master.json
+uv run --project backend faultweaver-storage init-key
+make up
+```
+
+Replace the example key path before running it. Open `http://localhost:5173`.
+Create an Engagement and add exact authorized scope before importing or sending
+traffic. `make demo-up` additionally starts the optional synthetic target; scope
+`http://demo:8088/` when the API runs in Compose. Follow the
+[first workflow](#first-workflow), then [generate a report](docs/reporting.md).
+
+`make down` stops services but **retains** encrypted data. Back up the key
+separately from the database; key loss is unrecoverable. For an existing database,
+read the [upgrade/migration procedure](docs/secret-storage.md#legacy-migration)
+instead of creating a replacement key. Native key-store setup is described below.
+
+## Detailed capabilities and compatibility
 
 Faultweaver is pre-release software. The current vertical slice includes:
 
@@ -58,8 +104,9 @@ Faultweaver is pre-release software. The current vertical slice includes:
 
 The four-lab compatibility milestone covers Juice Shop, DVWA, WebGoat, and
 Mutillidae II within their documented limits. Local storage now requires an
-independently supplied encryption key. Reporting/export and release readiness
-remain later milestones. See [Secret storage](docs/secret-storage.md) before
+independently supplied encryption key. Professional reporting is implemented;
+an independent full product/security audit and publication remain later gates.
+See [Secret storage](docs/secret-storage.md) before
 creating or upgrading a database.
 
 ## Architecture
@@ -99,7 +146,7 @@ document, 5,000 records, and 1 MB per captured request or response body.
 Prerequisites: Python 3.13+, `uv`, and Node.js 22.17+.
 
 ```bash
-uv sync --project backend --all-groups
+uv sync --locked --project backend --all-groups
 npm ci --prefix frontend
 ```
 
@@ -301,6 +348,9 @@ The workspace is available at `http://localhost:5173`, the API at `http://localh
 10. Classify a candidate or explicitly promote it, then author the finding prose.
 11. Preserve original and retest evidence, move the finding to **Ready for Retest**, and record each verification attempt.
 12. Open **Attack Chains**, create a path, add confirmed findings and intermediate steps in an explicit order, attach existing evidence, write the resulting impact, and validate the chain.
+13. Open **Report**, create a draft, author conclusions and limitations, review
+    selected Findings/chains and completeness notes, then save and generate a
+    revision. Download HTML, Markdown or JSON from that preserved revision.
 
 A replay or candidate is not a confirmed vulnerability. Promotion is always an explicit operator decision, and automated candidate reasoning is never copied into final finding prose. Attack Chains are also operator-authored: Faultweaver does not infer or auto-generate attack paths.
 

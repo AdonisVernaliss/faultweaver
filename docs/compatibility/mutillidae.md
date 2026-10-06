@@ -196,7 +196,9 @@ above and are not hidden in the Faultweaver error count.
   cataloging and checkbox discovery coverage remain incomplete here.
 - Large similar HTML comparison was slow: the final browser comparison took
   about 25.5 seconds for roughly 56–59 KB bodies. Normalization and conservative
-  similarity rules were not weakened to improve this result.
+  similarity rules were not weakened to improve this result. This is a historical
+  measurement; the exact-comparison optimization and current measurements are
+  recorded in [Reporting release validation](../release-validation.md#performance).
 - Offset pagination is not a snapshot of a continuously changing capture set;
   duplicate rows are suppressed, but operators should refresh after traffic
   changes when they need a current complete view.
@@ -209,6 +211,10 @@ above and are not hidden in the Faultweaver error count.
   60.56 seconds; the HTML comparator alone took 25.701 seconds, consistent with
   the existing approximately 25-second limitation. This is not a controlled
   before/after comparison of identical target responses.
+- Reporting release-polish regression: **Validated**, existing workflow passed
+  in 4.23 seconds. Similar HTML (48,020/51,259 normalized characters) compared in
+  0.206 seconds with score 0.9185 unchanged from the pre-change profile. No new
+  Mutillidae behavior, exploit coverage or target-specific production logic was added.
 - Results apply only to the pinned distribution and documented workflows.
   Retest, chains, exploits, and omitted form/file behaviors must not be inferred
   from a green compatibility workflow.

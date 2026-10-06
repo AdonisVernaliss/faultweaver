@@ -41,6 +41,7 @@ the [Python binding](https://github.com/coleifer/sqlcipher3).
 | Operational metadata | Methods/statuses/timestamps, host, source, IDs/FKs, counters, sequences, lifecycle states | Usable by SQL when unlocked, but not exposed as plaintext on disk. No plaintext search-shadow database. |
 | Operator-authored content | Engagement/Identity descriptions; Findings, Notes, Retests, Attack Chains and lifecycle history | Remains ordinary searchable text to the application, covered by the same database boundary without field-level API changes. Automated paths retain existing redaction. |
 | Evidence | Immutable redacted snapshots and source references | No hidden raw backing copy was found. Immutability/redaction stay unchanged; page encryption additionally protects incidental sensitive prose. |
+| Reports | Editable draft prose/selections, immutable canonical revisions and digests | Same encrypted pages/indexes; browser exports deliberately leave this boundary as confidential plaintext. |
 | Original import sources | Import batches store filename, digest, counts, warnings, and provenance, not the original HAR/cURL/OpenAPI source blob | Keep canonical data only; do not add a duplicate raw source archive. Digests/indexes are inside the encrypted database too. |
 
 All ORM models and the import, replay, crawler, normalization, Candidate,
@@ -128,7 +129,7 @@ copying an entire home directory may collect both and is outside this threat mod
 ## Legacy migration
 
 Schema upgrades alone do not encrypt plaintext SQLite. The packaged Alembic
-head is `0007`; schema-only migration helpers remain available for legacy
+head is `0008` (Report drafts/revisions); schema-only migration helpers remain available for legacy
 maintenance/tests, whereas application startup always supplies a keyed
 SQLCipher connection. A separate offline conversion is mandatory for plaintext.
 
@@ -153,8 +154,10 @@ backup. It uses SQLCipher's `sqlcipher_export` into a fresh private encrypted
 file, not an in-place plaintext rekey. Before atomic replacement it verifies
 every table's row count, exact typed-row/schema digest, page authentication and
 SQLite integrity. IDs, relationships, source links and stored values are
-preserved. Startup then upgrades schema `0006` to `0007` and records encrypted
-policy version 1, cipher format 4 and a nonsecret key fingerprint.
+preserved. Startup upgrades through storage revision `0007` and Report revision
+`0008`, recording encrypted policy version 1, cipher format 4 and a nonsecret key
+fingerprint. An already encrypted `0007` database upgrades in place with its
+existing key; it does not need another plaintext conversion or a new key.
 
 The old database stays in place until verification succeeds. On failure before
 replacement, retain the original and private backup; correct the cause and retry

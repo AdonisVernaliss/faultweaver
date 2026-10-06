@@ -16,7 +16,8 @@ Browser
             -> response normalization, structured diff, and candidate analysis
             -> finding, immutable evidence, operator note, and retest lifecycle
             -> ordered, operator-authored attack chain composition
-            -> SQLite
+            -> canonical report drafts, immutable revisions and offline renderers
+            -> authenticated SQLCipher (SQLite-compatible)
 
 Optional local validation profile
   -> deterministic, deliberately vulnerable demo SaaS
@@ -39,6 +40,11 @@ Optional local validation profile
 - `analysis` normalizes bounded responses, stores explainable comparisons, derives the authorization matrix, and emits conservative candidates.
 - `findings` owns explicit candidate promotion, stable display IDs, report prose, immutable evidence snapshots, operator notes, retest attempts, and append-only lifecycle events.
 - `attack_chains` owns engagement-scoped `AC-###` identifiers, narrative impact, ordered steps, evidence references, explicit validation, archival, and append-only lifecycle events.
+- `reports` owns `REP-###` drafts, consistent canonical snapshots and immutable
+  revisions rendered as HTML/Markdown/JSON; it never reads raw HTTP/Identity data.
+- `storage` owns independent keys, authenticated database opening, process locks
+  and explicit offline legacy conversion. Schema `0007` records encrypted storage
+  policy; `0008` adds Reports/revisions and a per-Engagement Report counter.
 
 Every replay URL is checked in the networking layer before a request is sent. Redirects are handled one hop at a time and checked before following. Sensitive authorization and cookie headers are removed if a redirect changes origin. Response capture is bounded to one megabyte by default.
 
@@ -58,7 +64,21 @@ Validation is explicit. A chain must have a title, at least two meaningful steps
 
 ## Persistence
 
-SQLite is the source of truth. The default local database is `data/faultweaver.db`; Compose mounts `/data/faultweaver.db` from a named volume. Assessment runs use stable engagement-scoped `RUN-###` IDs and retain target, limits, status, counters, timestamps, warnings, stop reason, frontier state, form metadata, grouped observations, and candidate links. Import batches use stable engagement-scoped `IMP-###` IDs and retain format, safe filename, content digest, counts, warnings, and timestamps. Imported requests and replays are separate records linked through `parent_exchange_id`; crawler requests add run/depth/discovery provenance to that same canonical exchange store. Comparisons link an immutable original to both replay records and their identity contexts; candidates remain linked after promotion. Per-engagement counters allocate stable `RUN-###`, `IMP-###`, `FW-###`, `EV-###`, `RT-###`, and `AC-###` display IDs.
+All tables and indexes described below are protected by SQLCipher, including
+Report drafts and revision documents. The SQLite-compatible filename/URL is not
+a plaintext-storage option. Keys are supplied outside the data volume. See
+[storage](secret-storage.md) and [reporting](reporting.md) for lifecycle details.
+
+SQLCipher is the source of truth. The default database is `data/faultweaver.db`;
+Compose mounts `/data/faultweaver.db` from a named volume. Assessment runs retain
+target, limits, status, counters, timestamps, warnings, frontier state, forms,
+observations and candidate links. Import batches retain format, safe filename,
+digest, counts, warnings and provenance. Imports/replays are separate records
+linked through `parent_exchange_id`; crawler traffic adds run/depth/discovery
+provenance to the same store. Comparisons link the original to both replays and
+Identity contexts; Candidates remain linked after promotion. Per-Engagement
+counters allocate `RUN-###`, `IMP-###`, `FW-###`, `EV-###`, `RT-###`, `AC-###` and
+`REP-###` identifiers.
 
 Attack Surface grouping is deliberately conservative. Observed traffic groups by exact method, origin, and concrete path. A concrete request is associated with a parameterized path only when an imported OpenAPI declaration for the same origin provides that template. Declared operations without a server remain useful standalone inventory rather than being guessed onto an observed host. Re-importing identical content warns about the probable duplicate but preserves its raw transactions and batch provenance.
 
