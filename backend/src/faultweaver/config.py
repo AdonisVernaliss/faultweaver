@@ -31,12 +31,17 @@ class Settings:
                 parsed = urlsplit(origin)
                 valid = (
                     parsed.scheme in {"http", "https"}
+                    and "*" not in origin
+                    and not any(
+                        ord(character) <= 32 or ord(character) == 127 for character in origin
+                    )
                     and parsed.hostname
                     and not parsed.username
                     and not parsed.password
                     and not parsed.path
                     and not parsed.query
                     and not parsed.fragment
+                    and parsed.port != 0
                 )
                 _ = parsed.port
             except ValueError:

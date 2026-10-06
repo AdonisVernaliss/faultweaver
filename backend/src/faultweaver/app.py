@@ -75,6 +75,15 @@ def create_app(
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def api_security_headers(request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(_: object, error: RequestValidationError) -> JSONResponse:
         # Validation input/context can contain arbitrary credentials, including

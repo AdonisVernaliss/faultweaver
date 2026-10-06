@@ -280,6 +280,14 @@ def create_evidence(
     engagement_id: str, payload: EvidenceCreate, session: SessionDep
 ) -> EvidenceResponse:
     get_engagement_or_404(session, engagement_id)
+    # Optional provenance fields are relationships too, even when the selected
+    # Evidence type captures only operator text or another source.
+    for item_id, model, label in (
+        (payload.source_exchange_id, HttpExchange, "Request"),
+        (payload.source_comparison_id, ResponseComparison, "Comparison"),
+    ):
+        if item_id is not None:
+            _scoped_or_404(session, model, engagement_id, item_id, label)
     snapshot = _evidence_snapshot(session, engagement_id, payload)
     if payload.finding_id:
         _finding_or_404(session, engagement_id, payload.finding_id)
