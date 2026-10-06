@@ -155,6 +155,7 @@ class AssessmentManager:
                     transport=self._transport,
                     timeout=run.request_timeout_seconds,
                     follow_redirects=False,
+                    trust_env=False,
                 ) as client,
                 ThreadPoolExecutor(max_workers=run.concurrency) as pool,
             ):

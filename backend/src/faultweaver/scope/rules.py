@@ -39,7 +39,9 @@ def normalize_path(path: str) -> str:
         if decoded == candidate:
             break
         candidate = decoded
-    if any(ord(character) < 32 for character in candidate):
+    if unquote(candidate) != candidate:
+        raise InvalidUrlError("path contains excessive nested encoding")
+    if any(ord(character) < 32 or ord(character) == 127 for character in candidate):
         raise InvalidUrlError("path contains control characters")
     candidate = candidate.replace("\\", "/")
     if not candidate.startswith("/"):
@@ -61,6 +63,8 @@ def default_port(scheme: str) -> int:
 
 def split_http_url(url: str) -> tuple[str, str, int, str]:
     try:
+        if any(ord(character) <= 32 or ord(character) == 127 for character in url):
+            raise InvalidUrlError("URL contains whitespace or control characters")
         parsed = urlsplit(url)
         scheme = normalize_scheme(parsed.scheme)
         if parsed.username is not None or parsed.password is not None:
@@ -68,7 +72,9 @@ def split_http_url(url: str) -> tuple[str, str, int, str]:
         if parsed.hostname is None:
             raise InvalidUrlError("URL must include a hostname")
         hostname = normalize_hostname(parsed.hostname)
-        port = parsed.port or default_port(scheme)
+        port = parsed.port if parsed.port is not None else default_port(scheme)
+        if not 1 <= port <= 65535:
+            raise InvalidUrlError("URL port is invalid")
         path = normalize_path(parsed.path)
     except (ValueError, UnicodeError) as error:
         if isinstance(error, InvalidUrlError):

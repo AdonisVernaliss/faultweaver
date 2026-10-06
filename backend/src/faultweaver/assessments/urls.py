@@ -4,7 +4,7 @@ import re
 from posixpath import normpath
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
-from faultweaver.scope.rules import normalize_hostname
+from faultweaver.scope.rules import normalize_hostname, split_http_url
 
 _PERCENT_ESCAPE = re.compile(r"%([0-9a-fA-F]{2})")
 _UNRESERVED = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
@@ -17,6 +17,7 @@ class InvalidCrawlUrl(ValueError):
 def canonicalize_url(url: str) -> str:
     """Return a conservative identity key without changing query ordering."""
     try:
+        split_http_url(url)
         parsed = urlsplit(url.strip())
         scheme = parsed.scheme.lower()
         if scheme not in {"http", "https"}:

@@ -22,7 +22,6 @@ HOP_BY_HOP_HEADERS = {
     "transfer-encoding",
     "upgrade",
 }
-SENSITIVE_HEADERS = {"authorization", "cookie", "proxy-authorization"}
 
 
 class ScopeViolationError(ValueError):
@@ -84,6 +83,7 @@ def execute_replay(
     scopes: list[ScopeRuleValue],
     max_redirects: int,
     max_response_bytes: int,
+    managed_header_names: frozenset[str] | set[str] = frozenset(),
 ) -> ReplayResult:
     current_method = method
     current_url = url
@@ -94,7 +94,7 @@ def execute_replay(
 
     for redirect_number in range(max_redirects + 1):
         if not is_url_in_scope(current_url, scopes):
-            raise ScopeViolationError(f"URL is outside the authorized scope: {current_url}")
+            raise ScopeViolationError("URL is outside the authorized scope")
 
         with client.stream(
             current_method,
@@ -129,15 +129,18 @@ def execute_replay(
             raise RedirectLimitError("Maximum redirect count exceeded")
         destination = urljoin(current_url, location)
         if not is_url_in_scope(destination, scopes):
-            raise ScopeViolationError(f"Redirect is outside the authorized scope: {destination}")
+            raise ScopeViolationError("Redirect is outside the authorized scope")
         redirects.append(destination)
 
         if _origin(current_url) != _origin(destination):
             current_headers = [
                 (name, value)
                 for name, value in current_headers
-                if name.lower() not in SENSITIVE_HEADERS
+                if not is_sensitive_header(name) and name.lower() not in managed_header_names
             ]
+            # Cookies have no port boundary. Do not let the client's jar undo
+            # the explicit credential removal on a different authorized origin.
+            client.cookies.clear()
         if response_status == 303 or (response_status in {301, 302} and current_method == "POST"):
             current_method = "GET"
             current_body = None

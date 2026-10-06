@@ -30,6 +30,7 @@ def build_replay_exchange(
     )
     body = payload.body if "body" in payload.model_fields_set else original.request_body
     identity: Identity | None = None
+    managed_header_names: set[str] = set()
     auth_source = "original"
     if payload.identity_id is not None:
         identity = session.scalar(
@@ -61,6 +62,7 @@ def build_replay_exchange(
     with httpx.Client(
         transport=transport,
         timeout=settings.request_timeout_seconds,
+        trust_env=False,
     ) as client:
         result = execute_replay(
             client,
@@ -71,6 +73,7 @@ def build_replay_exchange(
             scopes=scopes,
             max_redirects=settings.max_redirects,
             max_response_bytes=settings.max_response_bytes,
+            managed_header_names=managed_header_names,
         )
     _, host, _, path = split_http_url(result.url)
     return HttpExchange(
