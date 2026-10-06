@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from difflib import SequenceMatcher
 from typing import Any
 
+from faultweaver.analysis.matching import ExactSequenceMatcher
 from faultweaver.analysis.normalization import NormalizedResponse
 
 
@@ -37,9 +37,9 @@ def compare_responses(first: NormalizedResponse, second: NormalizedResponse) -> 
             "delta": second.body_length - first.body_length,
         },
         "normalized_similarity": round(
-            SequenceMatcher(
-                None, first.normalized_text, second.normalized_text, autojunk=False
-            ).ratio(),
+            1.0
+            if first.normalized_text == second.normalized_text
+            else ExactSequenceMatcher(first.normalized_text, second.normalized_text).ratio(),
             4,
         ),
         "json": {
