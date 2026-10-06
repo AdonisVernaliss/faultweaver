@@ -112,6 +112,7 @@ and evidence.
   bounded workflow and coverage matrix.
 - The real identity comparison exercised expected per-user behavior and did not
   generate a Candidate. This is the intended conservative outcome.
-- Replay credentials and captured traffic remain unencrypted at rest in the
-  local SQLite database. The database and any raw local capture must be treated
-  as sensitive and removed when no longer needed.
+- The workflow was rerun with authenticated encrypted storage during
+  [Secret-Storage Hardening](../secret-storage.md#validation-results): **Validated**.
+  The original coverage limits remain unchanged. Raw external captures and any
+  legacy plaintext backups still require separate protection.

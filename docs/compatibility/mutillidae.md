@@ -202,10 +202,13 @@ above and are not hidden in the Faultweaver error count.
   changes when they need a current complete view.
 - Session expiry requires an ordinary new synthetic login/Identity. The final
   browser comparison used a fresh session, not an expired test cookie.
-- Replay credentials and raw captured secrets remain unencrypted in SQLite.
-  Temporary captures and databases are sensitive even though public views are
-  redacted. Local Secret-Storage Hardening is the next milestone and has not
-  been started here.
+- The workflow was rerun with authenticated encrypted storage during
+  [Secret-Storage Hardening](../secret-storage.md#validation-results): **Validated**.
+  The original coverage limits remain unchanged. Raw external captures and any
+  legacy plaintext backups still require separate protection. The repeat took
+  60.56 seconds; the HTML comparator alone took 25.701 seconds, consistent with
+  the existing approximately 25-second limitation. This is not a controlled
+  before/after comparison of identical target responses.
 - Results apply only to the pinned distribution and documented workflows.
   Retest, chains, exploits, and omitted form/file behaviors must not be inferred
   from a green compatibility workflow.

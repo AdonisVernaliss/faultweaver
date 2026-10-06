@@ -136,8 +136,10 @@ Docker build uses Node 22.
 - The automated HAR is assembled from real HTTP responses. The independent
   browser capture and responsive walkthrough are separate manual validation,
   not ordinary CI.
-- Replay credentials and captured traffic remain unencrypted at rest in local
-  SQLite. Raw captures and temporary test databases must be treated as sensitive.
+- The workflow was rerun with authenticated encrypted storage during
+  [Secret-Storage Hardening](../secret-storage.md#validation-results): **Validated**.
+  The original coverage limits remain unchanged. Raw external captures and any
+  legacy plaintext backups still require separate protection.
 - Results apply to WebGoat 2026.4 at the pinned digest and the documented
   workflows. Separate [Mutillidae II validation](mutillidae.md) has its own
   bounded coverage matrix.

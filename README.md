@@ -40,7 +40,7 @@ Faultweaver is pre-release software. The current vertical slice includes:
 - link existing immutable evidence at chain or step level, validate complete paths explicitly, and preserve archived chains and lifecycle history;
 - redact common secrets in API and workspace views while retaining replay material locally;
 - persist assessment runs, crawl state, requests, observations, candidates,
-  findings, evidence, retests, Attack Chains, and history in SQLite;
+  findings, evidence, retests, Attack Chains, and history in authenticated SQLCipher storage;
 - upgrade fresh or existing pre-migration databases through packaged Alembic migrations.
 - run an opt-in, loopback-published deliberately vulnerable demo SaaS with
   deterministic tenant data and authorization defects for local workflow validation.
@@ -57,12 +57,14 @@ Faultweaver is pre-release software. The current vertical slice includes:
   workflows against the official OWASP Mutillidae II image reporting 2.12.8.
 
 The four-lab compatibility milestone covers Juice Shop, DVWA, WebGoat, and
-Mutillidae II within their documented limits. Local secret-storage hardening
-is next; reporting/export and release readiness remain later milestones.
+Mutillidae II within their documented limits. Local storage now requires an
+independently supplied encryption key. Reporting/export and release readiness
+remain later milestones. See [Secret storage](docs/secret-storage.md) before
+creating or upgrading a database.
 
 ## Architecture
 
-- FastAPI, SQLAlchemy, and SQLite backend
+- FastAPI, SQLAlchemy, and SQLCipher 4 (SQLite-compatible) backend
 - SvelteKit and TypeScript frontend
 - Docker Compose for local deployment
 
@@ -104,11 +106,13 @@ npm ci --prefix frontend
 Run the API and frontend in separate terminals:
 
 ```bash
+# Once for a fresh installation, using the native OS key store:
+uv run --project backend faultweaver-storage init-key
 uv run --project backend uvicorn faultweaver.app:app --reload
 npm run dev --prefix frontend
 ```
 
-Open `http://localhost:5173`. The frontend proxies `/api` to `http://localhost:8000` by default. Local state is stored in `data/faultweaver.db`.
+Open `http://localhost:5173`. The frontend proxies `/api` to `http://localhost:8000` by default. Encrypted local state is stored in `data/faultweaver.db`. Startup never generates a missing key or opens a legacy plaintext database; use the explicit [migration procedure](docs/secret-storage.md#legacy-migration).
 
 Run the validated checks:
 
@@ -129,6 +133,7 @@ to loopback only, the container is read-only with dropped capabilities, and the
 service is disabled unless its Compose profile is requested.
 
 ```bash
+# First configure the independently stored key as described below.
 docker compose --profile demo up --build
 ```
 
@@ -268,10 +273,15 @@ limits, and known constraints.
 ## Docker Compose
 
 ```bash
+# Choose an absolute private location outside this repository and all data/backup volumes.
+export FAULTWEAVER_KEY_PROVIDER=file
+export FAULTWEAVER_MASTER_KEY_FILE=/absolute/private/faultweaver-keys/master.json
+# Once only; creates the directory/key with restricted permissions.
+uv run --project backend faultweaver-storage init-key
 docker compose up --build
 ```
 
-The workspace is available at `http://localhost:5173`, the API at `http://localhost:8000`, and SQLite data is retained in the `faultweaver-data` volume.
+The workspace is available at `http://localhost:5173`, the API at `http://localhost:8000`, both published on loopback only. Encrypted data is retained in the `faultweaver-data` volume. The key is mounted read-only outside that volume; do not place it in `.env`, an image, the repository or the data directory. Compose never generates one. The bootstrap reads the owner-only secret and permanently drops API privileges. See [key backup, loss and migration](docs/secret-storage.md).
 
 ## First workflow
 
@@ -300,7 +310,7 @@ See [Architecture](docs/architecture.md) for the current boundaries and design d
 
 Faultweaver favors conservative request limits and explicit operator actions. It does not implement credential attacks, denial of service, persistence, destructive modification, malware deployment, shell exploitation, or stealth/evasion capabilities.
 
-Identity credentials and imported replay material are stored in the local SQLite database so replay remains possible. API responses, previews, validation errors, logs, and UI views redact common secret-bearing headers, URL credentials and query values, and structured body fields, but the database itself must be protected as sensitive assessment data. Import parsers enforce record and body limits; cURL is parsed only as inert text, and OpenAPI external references are reported but never fetched.
+Identity credentials and imported replay material remain available to the unlocked backend, but all database pages and indexes are encrypted and authenticated with an independently stored key. A database/data-volume copy without that key cannot be read as ordinary SQLite. This does not protect a compromised running backend, root, memory inspection or possession of both the key and database. API responses, previews, validation errors, logs, and UI views continue to redact recognized secrets; arbitrary private application content may still be visible to the operator. Import parsers enforce record and body limits; cURL is parsed only as inert text, and OpenAPI external references are reported but never fetched.
 
 ## License
 
