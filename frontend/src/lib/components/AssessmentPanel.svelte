@@ -30,40 +30,51 @@
   let stopping = $state(false);
   let error = $state('');
   let terminalSynced = $state('');
+  let requestEpoch = 0;
+  let pendingId: string | null = null;
+  let appliedFocus = '';
 
   $effect(() => {
-    const target = focusId || selectedId || runs[0]?.id;
-    if (target && target !== selectedId) void selectRun(target);
+    if (focusId !== appliedFocus) {
+      appliedFocus = focusId;
+      if (focusId) void selectRun(focusId);
+    } else if (!selectedId && runs[0]) void selectRun(runs[0].id);
   });
 
   onMount(() => {
     const timer = window.setInterval(() => {
       if (detail && assessmentIsActive(detail)) void refreshDetail(true);
     }, 800);
-    return () => window.clearInterval(timer);
+    return () => { requestEpoch++; window.clearInterval(timer); };
   });
 
   async function selectRun(id: string) {
     selectedId = id;
+    detail = null;
     tab = 'overview';
     await refreshDetail(false);
   }
 
   async function refreshDetail(quiet: boolean) {
     if (!selectedId) return;
+    if (quiet && pendingId === selectedId) return;
+    const id = selectedId;
+    const epoch = ++requestEpoch;
+    pendingId = id;
     if (!quiet) loading = true;
     error = '';
     try {
-      const next = await loadAssessment(engagementId, selectedId);
+      const next = await loadAssessment(engagementId, id);
+      if (epoch !== requestEpoch || id !== selectedId) return;
       detail = next;
       if (!assessmentIsActive(next) && terminalSynced !== next.id) {
         terminalSynced = next.id;
         await onchanged();
       }
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not load the assessment';
+      if (epoch === requestEpoch) error = cause instanceof Error ? cause.message : 'Could not load the assessment';
     } finally {
-      loading = false;
+      if (epoch === requestEpoch) { loading = false; pendingId = null; }
     }
   }
 

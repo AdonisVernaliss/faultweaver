@@ -166,7 +166,7 @@
   }
 
   async function refreshRequests(selectId?: string, append = false) {
-    if (!engagement) return;
+    if (!engagement || loadingEngagement) return;
     clearTimeout(filterTimer);
     loadingRequests = true;
     try {
@@ -195,16 +195,20 @@
   }
 
   async function refreshImports() {
-    if (!engagement) return;
-    [attackSurface, importBatches] = await Promise.all([
+    if (!engagement || loadingEngagement) return;
+    const epoch = engagementEpoch;
+    const next = await Promise.all([
       api<AttackSurfaceEndpoint[]>(`engagements/${engagement.id}/attack-surface`),
       api<ImportBatch[]>(`engagements/${engagement.id}/imports`)
     ]);
+    if (epoch === engagementEpoch) [attackSurface, importBatches] = next;
   }
 
   async function refreshAssessments() {
-    if (!engagement) return;
-    assessments = await api<AssessmentRun[]>(`engagements/${engagement.id}/assessments`);
+    if (!engagement || loadingEngagement) return;
+    const epoch = engagementEpoch;
+    const next = await api<AssessmentRun[]>(`engagements/${engagement.id}/assessments`);
+    if (epoch === engagementEpoch) assessments = next;
   }
 
   async function refreshAssessmentArtifacts() {
@@ -212,34 +216,41 @@
   }
 
   async function refreshIdentities() {
-    if (!engagement) return;
-    identities = await api<Identity[]>(`engagements/${engagement.id}/identities`);
+    if (!engagement || loadingEngagement) return;
+    const epoch = engagementEpoch;
+    const next = await api<Identity[]>(`engagements/${engagement.id}/identities`);
+    if (epoch === engagementEpoch) identities = next;
   }
 
   async function refreshAnalysis() {
-    if (!engagement) return;
-    [matrix, candidates] = await Promise.all([
+    if (!engagement || loadingEngagement) return;
+    const epoch = engagementEpoch;
+    const next = await Promise.all([
       api<Matrix>(`engagements/${engagement.id}/authorization-matrix`),
       api<CandidateSummary[]>(`engagements/${engagement.id}/candidates`)
     ]);
+    if (epoch === engagementEpoch) [matrix, candidates] = next;
   }
 
   async function refreshLifecycle() {
-    if (!engagement) return;
-    [findings, evidence, retests] = await Promise.all([
+    if (!engagement || loadingEngagement) return;
+    const epoch = engagementEpoch;
+    const next = await Promise.all([
       api<Finding[]>(`engagements/${engagement.id}/findings`),
       api<EvidenceSummary[]>(`engagements/${engagement.id}/evidence`),
       api<Retest[]>(`engagements/${engagement.id}/retests`)
     ]);
+    if (epoch === engagementEpoch) [findings, evidence, retests] = next;
   }
 
   async function refreshAttackChains() {
-    if (!engagement) return;
+    if (!engagement || loadingEngagement) return;
+    const epoch = engagementEpoch;
     const [active, archived] = await Promise.all([
       api<AttackChain[]>(`engagements/${engagement.id}/attack-chains`),
       api<AttackChain[]>(`engagements/${engagement.id}/attack-chains?status=Archived`)
     ]);
-    attackChains = [...active, ...archived];
+    if (epoch === engagementEpoch) attackChains = [...active, ...archived];
   }
 
   async function refreshChainsAndFindings() {
@@ -252,7 +263,7 @@
     error = '';
     try {
       const detail = await api<ExchangeDetail>(`requests/${id}`);
-      if (epoch === detailEpoch) selected = detail;
+      if (epoch === detailEpoch && detail.engagement_id === engagement?.id) selected = detail;
     } catch (cause) {
       if (epoch === detailEpoch) error = cause instanceof Error ? cause.message : 'Could not load the request';
     } finally {
@@ -262,6 +273,8 @@
 
   async function replaySelected() {
     if (!selected) return;
+    const epoch = engagementEpoch;
+    const selection = detailEpoch;
     replaying = true;
     error = '';
     try {
@@ -269,16 +282,19 @@
         method: 'POST',
         body: '{}'
       });
-      await refreshRequests(replay.id);
+      if (epoch !== engagementEpoch) return;
+      await refreshRequests(selection === detailEpoch ? replay.id : undefined);
+      if (epoch !== engagementEpoch) return;
       showNotice(`Replay completed with HTTP ${replay.response_status ?? '—'}`);
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Replay failed';
+      if (epoch === engagementEpoch) error = cause instanceof Error ? cause.message : 'Replay failed';
     } finally {
       replaying = false;
     }
   }
 
-  function compared(_: Comparison) {
+  function compared(comparison: Comparison) {
+    if (comparison.engagement_id !== engagement?.id || loadingEngagement) return;
     void Promise.all([refreshRequests(), refreshAnalysis()]);
     showNotice('Comparison and replay evidence saved locally');
   }
@@ -301,11 +317,13 @@
   }
 
   function savedEvidence(item: Evidence) {
+    if (item.engagement_id !== engagement?.id || loadingEngagement) return;
     evidence = [item, ...evidence.filter((existing) => existing.id !== item.id)];
     showNotice(`${item.display_id} captured as immutable evidence`);
   }
 
   function promotedFinding(item: Finding) {
+    if (item.engagement_id !== engagement?.id || loadingEngagement) return;
     focusedFindingId = item.id;
     findings = [item, ...findings.filter((existing) => existing.id !== item.id)];
     activeView = 'findings';
@@ -345,12 +363,14 @@
   }
 
   function createdScope(scope: ScopeRule) {
+    if (scope.engagement_id !== engagement?.id || loadingEngagement) return;
     scopes = [...scopes, scope];
     scopeDialog = false;
     showNotice('Authorized scope added');
   }
 
   async function createdAssessment(run: AssessmentRun) {
+    if (run.engagement_id !== engagement?.id || loadingEngagement) return;
     focusedAssessmentId = run.id;
     assessments = [run, ...assessments.filter((item) => item.id !== run.id)];
     assessmentDialog = false;
@@ -359,8 +379,12 @@
   }
 
   async function importedTraffic(result: ImportResult | Exchange) {
+    const id = 'batch' in result ? result.batch.engagement_id : result.engagement_id;
+    if (id !== engagement?.id || loadingEngagement) return;
+    const epoch = engagementEpoch;
     const selectId = 'batch' in result ? result.request_ids[0] : result.id;
     await Promise.all([refreshRequests(selectId), refreshImports()]);
+    if (epoch !== engagementEpoch) return;
     showNotice('batch' in result ? `${result.batch.display_id} imported without sending traffic` : 'Request imported without sending traffic');
   }
 
