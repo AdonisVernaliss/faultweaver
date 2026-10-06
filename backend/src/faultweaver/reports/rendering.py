@@ -195,9 +195,7 @@ def render_document(document: ReportDocument, format_name: str) -> str:
             writer.heading(3, "Reproduction Steps")
             writer.ordered(finding.reproduction_steps)
         writer.heading(3, "Preserved Finding Evidence")
-        writer.paragraph(
-            ", ".join(finding.finding_evidence_ids) or "No immutable Evidence linked."
-        )
+        writer.paragraph(", ".join(finding.finding_evidence_ids) or "No immutable Evidence linked.")
         writer.paragraph(
             "Original and supporting snapshots remain preserved here. Retest Evidence is "
             "referenced separately below; a snapshot may support both."

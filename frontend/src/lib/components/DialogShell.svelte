@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import { onMount, type Snippet } from 'svelte';
 
   let {
     eyebrow,
@@ -9,15 +9,37 @@
     children
   }: { eyebrow: string; title: string; wide?: boolean; onclose: () => void; children: Snippet } = $props();
 
+  let dialog: HTMLDivElement;
+  const focusable = () => [...dialog.querySelectorAll<HTMLElement>('button, input, select, textarea, a[href], [tabindex]')]
+    .filter(element => !element.matches(':disabled, [tabindex="-1"]') && element.getClientRects().length);
+  onMount(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    (focusable()[0] ?? dialog).focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  });
+
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') { event.preventDefault(); onclose(); }
+    if (event.key !== 'Tab') return;
+    const elements = focusable();
+    const first = elements[0] ?? dialog;
+    const last = elements.at(-1) ?? dialog;
+    if (!dialog.contains(document.activeElement) || (event.shiftKey && document.activeElement === first)) {
+      event.preventDefault(); (event.shiftKey ? last : first).focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  }
+
   function onBackdrop(event: MouseEvent) {
     if (event.target === event.currentTarget) onclose();
   }
 </script>
 
-<svelte:window onkeydown={(event) => event.key === 'Escape' && onclose()} />
+<svelte:window onkeydown={onKeydown} />
 
 <div class="dialog-backdrop" role="presentation" onclick={onBackdrop}>
-  <div class:wide class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+  <div bind:this={dialog} tabindex="-1" class:wide class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
     <header class="dialog-header">
       <div>
         <span class="eyebrow">{eyebrow}</span>

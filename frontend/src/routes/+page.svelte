@@ -73,6 +73,9 @@
   let activeView = $state<'assessments' | 'requests' | 'attack-surface' | 'identities' | 'matrix' | 'candidates' | 'findings' | 'evidence' | 'retests' | 'attack-chains' | 'reports'>('assessments');
   let reportDirty = $state(false);
   let loading = $state(true);
+  let loadingEngagement = $state(false);
+  let engagementEpoch = 0;
+  let detailEpoch = 0;
   let loadingDetail = $state(false);
   let replaying = $state(false);
   let createDialog = $state(false);
@@ -109,6 +112,9 @@
   async function selectEngagement(id: string) {
     if (reportDirty && !window.confirm('Discard unsaved report edits and switch Engagement?')) return;
     reportDirty = false;
+    const epoch = ++engagementEpoch;
+    detailEpoch++;
+    loadingEngagement = true;
     error = '';
     selected = null;
     clearTimeout(filterTimer);
@@ -133,6 +139,8 @@
         api<AttackChain[]>(`engagements/${id}/attack-chains`),
         api<AttackChain[]>(`engagements/${id}/attack-chains?status=Archived`)
       ]);
+      if (epoch !== engagementEpoch) return;
+      focusedFindingId = focusedAttackChainId = focusedAssessmentId = focusedCandidateId = '';
       engagement = detail;
       scopes = scopeRules;
       assessments = assessmentItems;
@@ -151,7 +159,9 @@
       localStorage.setItem('faultweaver.engagement', id);
       if (requests.length) await selectRequest(requests[0].id);
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not load the engagement';
+      if (epoch === engagementEpoch) error = cause instanceof Error ? cause.message : 'Could not load the engagement';
+    } finally {
+      if (epoch === engagementEpoch) loadingEngagement = false;
     }
   }
 
@@ -237,14 +247,16 @@
   }
 
   async function selectRequest(id: string) {
+    const epoch = ++detailEpoch;
     loadingDetail = true;
     error = '';
     try {
-      selected = await api<ExchangeDetail>(`requests/${id}`);
+      const detail = await api<ExchangeDetail>(`requests/${id}`);
+      if (epoch === detailEpoch) selected = detail;
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : 'Could not load the request';
+      if (epoch === detailEpoch) error = cause instanceof Error ? cause.message : 'Could not load the request';
     } finally {
-      loadingDetail = false;
+      if (epoch === detailEpoch) loadingDetail = false;
     }
   }
 
@@ -415,19 +427,18 @@
       {/if}
       <div class="topbar-spacer"></div>
       <span class="safety-label">AUTHORIZED TARGETS ONLY</span>
-      <button class="icon-button" type="button" aria-label="Workspace settings">⋮</button>
     </header>
 
     {#if error}
       <div class="error-banner" role="alert">
-        <strong>Action failed</strong><span>{error}</span><button onclick={() => (error = '')}>×</button>
+        <strong>Action failed</strong><span>{error}</span><button aria-label="Dismiss error" onclick={() => (error = '')}>×</button>
       </div>
     {/if}
 
-    {#if loading}
-      <div class="loading-screen">
+    {#if loading || loadingEngagement}
+      <div class="loading-screen" role="status">
         <span class="spinner"></span><strong>Opening local workspace</strong
-        ><small>Reading engagement state from SQLite</small>
+        ><small>Reading engagement state from protected local storage</small>
       </div>
     {:else if engagement}
       <section class:empty={scopes.length === 0} class="scope-strip" id="scope">
@@ -454,6 +465,7 @@
         </button>
       </section>
 
+      {#key engagement.id}
       {#if activeView === 'assessments'}
         <AssessmentPanel engagementId={engagement.id} runs={assessments} focusId={focusedAssessmentId} onnew={() => (assessmentDialog = true)} onchanged={refreshAssessmentArtifacts} onrequest={openAssessmentRequest} oncandidate={openCandidate} />
       {:else if activeView === 'requests'}
@@ -495,6 +507,7 @@
       {:else}
         <AttackChainPanel engagementId={engagement.id} chains={attackChains} {findings} {evidence} focusId={focusedAttackChainId} onchanged={refreshChainsAndFindings} onfinding={openFinding} />
       {/if}
+      {/key}
     {:else}
       <section class="first-run">
         <span class="eyebrow">LOCAL-FIRST ASSESSMENT WORKSPACE</span>
