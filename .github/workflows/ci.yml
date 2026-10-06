@@ -19,7 +19,7 @@ jobs:
       - run: uv sync --project backend --locked --all-groups
       - run: uv run --project backend ruff check .
       - run: uv run --project backend ruff format --check .
-      - run: uv run --project backend pytest -q
+      - run: uv run --project backend python -m pytest -q backend/tests demo/tests
 
   frontend:
     runs-on: ubuntu-latest

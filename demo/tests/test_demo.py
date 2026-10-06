@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 from faultweaver.app import create_app
 from faultweaver.config import Settings
+from faultweaver.storage.keys import KeyMaterial, MemoryKeyProvider
 
 from demo.app import create_server, validate_bind_host
 
@@ -146,11 +147,13 @@ def test_non_loopback_binding_requires_explicit_override() -> None:
 def test_faultweaver_workflow_against_demo(tmp_path: Path) -> None:
     with running_demo() as (base_url, demo_server):
         parsed = urlsplit(base_url)
+        provider = MemoryKeyProvider(KeyMaterial.generate())
         app = create_app(
             Settings(
                 database_url=f"sqlite:///{tmp_path / 'faultweaver.db'}",
                 allowed_origins=("http://localhost:5173",),
-            )
+            ),
+            key_provider=provider,
         )
         with TestClient(app) as client:
             engagement = client.post(
@@ -248,6 +251,113 @@ def test_faultweaver_workflow_against_demo(tmp_path: Path) -> None:
             ).json()
             assert any(
                 item["path_template"] == "/api/invoices/1001" for item in surface
+            )
+
+            prefix = f"/api/engagements/{engagement_id}"
+            findings = []
+            evidence = []
+            for result in (comparison.json(), admin_comparison.json()):
+                promoted = client.post(
+                    f"{prefix}/candidates/{result['candidate']['id']}/promote",
+                    json={
+                        "severity": "High",
+                        "description": "Confirmed against the synthetic read-only demo.",
+                        "impact": "Synthetic cross-context data access.",
+                    },
+                )
+                assert promoted.status_code == 201
+                findings.append(promoted.json())
+                saved = client.post(
+                    f"{prefix}/evidence",
+                    json={
+                        "evidence_type": "Response Comparison",
+                        "title": "Synthetic demo comparison",
+                        "source_comparison_id": result["id"],
+                        "finding_id": promoted.json()["id"],
+                    },
+                )
+                assert saved.status_code == 201
+                assert "demo-alice-token" not in saved.text
+                evidence.append(saved.json())
+            chain = client.post(
+                f"{prefix}/attack-chains",
+                json={"title": "Synthetic cross-context path"},
+            ).json()
+            for finding in findings:
+                assert (
+                    client.post(
+                        f"{prefix}/attack-chains/{chain['id']}/steps",
+                        json={
+                            "step_type": "Finding",
+                            "finding_id": finding["id"],
+                        },
+                    ).status_code
+                    == 201
+                )
+            assert (
+                client.post(
+                    f"{prefix}/attack-chains/{chain['id']}/evidence",
+                    json={"evidence_id": evidence[0]["id"]},
+                ).status_code
+                == 200
+            )
+            assert (
+                client.patch(
+                    f"{prefix}/attack-chains/{chain['id']}",
+                    json={
+                        "status": "Validated",
+                        "resulting_impact": "Both synthetic authorization gaps were demonstrated.",
+                    },
+                ).status_code
+                == 200
+            )
+            assert (
+                client.patch(
+                    f"{prefix}/findings/{findings[0]['id']}",
+                    json={"status": "Ready for Retest"},
+                ).status_code
+                == 200
+            )
+            repeated = client.post(
+                f"/api/requests/{invoice_request['id']}/compare",
+                json={
+                    "identity_a_id": identity_ids[0],
+                    "identity_b_id": identity_ids[1],
+                },
+            )
+            assert repeated.status_code == 201
+            retest_evidence = client.post(
+                f"{prefix}/evidence",
+                json={
+                    "evidence_type": "Response Comparison",
+                    "title": "Synthetic demo retest",
+                    "source_comparison_id": repeated.json()["id"],
+                    "finding_id": findings[0]["id"],
+                },
+            ).json()
+            retest = client.post(
+                f"{prefix}/findings/{findings[0]['id']}/retests",
+                json={
+                    "status": "Still Vulnerable",
+                    "evidence_ids": [retest_evidence["id"]],
+                    "operator_notes": "Demo remains intentionally unchanged; no fixed state is claimed.",
+                },
+            )
+            assert retest.status_code == 201
+        with TestClient(
+            create_app(app.state.settings, key_provider=provider)
+        ) as restarted:
+            persisted = restarted.get(f"{prefix}/attack-chains/{chain['id']}").json()
+            assert persisted["status"] == "Validated" and len(persisted["steps"]) == 2
+            assert (
+                restarted.get(f"{prefix}/evidence/{evidence[0]['id']}").json()
+                == evidence[0]
+            )
+            assert (
+                restarted.get(f"{prefix}/findings/{findings[0]['id']}").json()[
+                    "latest_retest"
+                ]["status"]
+                == "Still Vulnerable"
             )
 
         requested = list(demo_server.request_log)
