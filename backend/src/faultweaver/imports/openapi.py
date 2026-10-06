@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from copy import deepcopy
 from urllib.parse import urlsplit
 
@@ -22,6 +23,7 @@ def parse_openapi(content: str, limits: ParserLimits) -> ParseResult:
             f"OpenAPI document exceeds the {limits.max_document_bytes} byte limit"
         )
     document = _load_document(content)
+    _validate_document_tree(document, limits.max_document_bytes)
     version = document.get("openapi")
     if not isinstance(version, str) or not (version.startswith("3.0") or version.startswith("3.1")):
         raise OpenApiParseError("OpenAPI 3.0 or 3.1 is required")
@@ -45,6 +47,9 @@ def parse_openapi(content: str, limits: ParserLimits) -> ParseResult:
             continue
         path_servers = _servers(path_item.get("servers"), f"path {raw_path}", result.warnings)
         for method, raw_operation in path_item.items():
+            if not isinstance(method, str):
+                result.warnings.append(f"Path {raw_path}: non-string operation key was ignored")
+                continue
             if method.lower() not in _METHODS:
                 continue
             operation_index += 1
@@ -73,6 +78,8 @@ def parse_openapi(content: str, limits: ParserLimits) -> ParseResult:
                 result.warnings,
             )
             for server_url in servers:
+                if len(result.endpoints) >= limits.max_entries:
+                    raise OpenApiParseError("OpenAPI expanded endpoint limit exceeded")
                 result.endpoints.append(
                     DeclaredEndpoint(
                         method=method.upper(),
@@ -91,11 +98,48 @@ def _load_document(content: str) -> dict[str, object]:
     except json.JSONDecodeError:
         try:
             loaded = yaml.safe_load(content)
-        except yaml.YAMLError as error:
+        except (yaml.YAMLError, RecursionError) as error:
             raise OpenApiParseError("OpenAPI document is not valid JSON or safe YAML") from error
+    except RecursionError as error:
+        raise OpenApiParseError("OpenAPI nesting limit exceeded") from error
     if not isinstance(loaded, dict):
         raise OpenApiParseError("OpenAPI document must be an object")
     return loaded
+
+
+def _validate_document_tree(document: dict, maximum: int) -> None:
+    # Safe YAML can still contain cycles, aliases, non-JSON keys or scalars.
+    # Count expanded visits/bytes before copying/resolving any imported data.
+    stack = [(document, frozenset())]
+    visits = size = 0
+    while stack:
+        value, ancestors = stack.pop()
+        visits += 1
+        if visits > 100_000 or len(ancestors) > 64 or size > maximum:
+            raise OpenApiParseError("OpenAPI expanded document limit exceeded")
+        if isinstance(value, (dict, list)):
+            if id(value) in ancestors:
+                raise OpenApiParseError("OpenAPI cyclic YAML aliases are unsupported")
+            parents = ancestors | {id(value)}
+            if isinstance(value, dict):
+                # Unquoted YAML response status codes are commonly integers.
+                if not all(isinstance(key, (str, int)) for key in value):
+                    raise OpenApiParseError("OpenAPI object keys must be strings or integers")
+                size += sum(len(str(key).encode("utf-8")) + 4 for key in value)
+                children = value.values()
+            else:
+                children = value
+            stack.extend((child, parents) for child in children)
+        elif isinstance(value, str):
+            size += len(value.encode("utf-8")) + 3
+        elif value is None or isinstance(value, (int, bool)):
+            size += 8
+        elif isinstance(value, float) and math.isfinite(value):
+            size += 24
+        else:
+            raise OpenApiParseError("OpenAPI values must be JSON-compatible")
+    if size > maximum:
+        raise OpenApiParseError("OpenAPI expanded document limit exceeded")
 
 
 def _resolve(
@@ -114,7 +158,7 @@ def _resolve(
     if not reference.startswith("#/"):
         warnings.append(f"{context}: external reference is unsupported and was not fetched")
         return {"$ref": reference, "unresolved": True}
-    if reference in seen:
+    if reference in seen or len(seen) >= 64:
         warnings.append(f"{context}: recursive internal reference was not expanded")
         return {"$ref": reference, "unresolved": True}
     current: object = document
@@ -142,14 +186,13 @@ def _servers(value: object, context: str, warnings: list[str]) -> list[str]:
             warnings.append(f"{context}: malformed server {index} was ignored")
             continue
         server_url = _expand_server(item["url"], item.get("variables"))
-        parsed = urlsplit(server_url)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-            warnings.append(f"{context}: invalid server URL was ignored")
-            continue
         try:
+            parsed = urlsplit(server_url)
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                raise ValueError
             port = parsed.port
         except ValueError:
-            warnings.append(f"{context}: invalid server port was ignored")
+            warnings.append(f"{context}: invalid server URL or port was ignored")
             continue
         del port
         servers.append(server_url.rstrip("/"))

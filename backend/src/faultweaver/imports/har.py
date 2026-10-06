@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import math
 from datetime import datetime
 from typing import Any
 
@@ -87,7 +88,11 @@ def _parse_entry(entry: object, index: int, limits: ParserLimits) -> CanonicalHt
             redirect_chain.append(redirect_url)
 
     elapsed = entry.get("time")
-    elapsed_ms = float(elapsed) if isinstance(elapsed, (int, float)) and elapsed >= 0 else None
+    elapsed_ms = (
+        float(elapsed)
+        if isinstance(elapsed, (int, float)) and math.isfinite(elapsed) and elapsed >= 0
+        else None
+    )
     observed_at = _timestamp(entry.get("startedDateTime"), index, warnings)
     record = CanonicalHttpRecord(
         method=method,

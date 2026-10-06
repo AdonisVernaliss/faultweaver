@@ -35,7 +35,10 @@ class CanonicalHttpRecord:
 
     def validated_parts(self) -> tuple[str, str, str, str]:
         method = self.method.strip().upper()
-        parsed = urlsplit(self.url)
+        try:
+            parsed = urlsplit(self.url)
+        except ValueError as error:
+            raise CanonicalizationError("HTTP URL is invalid") from error
         if not method or len(method) > 16:
             raise CanonicalizationError("HTTP method is invalid")
         if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
