@@ -566,3 +566,28 @@ def test_markdown_fence_cannot_be_closed_by_target_evidence():
     rendered = writer.parts[0]
     assert rendered.startswith("```````text\n")
     assert rendered.rstrip().endswith("```````")
+
+
+def test_report_record_limit_precedes_evidence_payload_reads(
+    app_client, report_scenario, monkeypatch
+):
+    from sqlalchemy import event
+
+    from faultweaver.reports import builder
+
+    base = report_scenario["base"]
+    report = create_report(app_client, base)
+    monkeypatch.setattr(builder, "MAX_EVIDENCE_RECORDS", 1)
+    statements = []
+    engine = app_client.app.state.session_factory.kw["bind"]
+
+    def capture(connection, cursor, statement, parameters, context, executemany):
+        statements.append(statement.lower())
+
+    event.listen(engine, "before_cursor_execute", capture)
+    try:
+        response = app_client.get(base + "/" + report["id"] + "/preview")
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)
+    assert response.status_code == 422
+    assert not any("evidence.snapshot" in statement for statement in statements)

@@ -33,6 +33,7 @@ SEVERITIES = ("Critical", "High", "Medium", "Low", "Informational")
 RETEST_STATUSES = ("Still Vulnerable", "Partially Fixed", "Fixed", "Unable to Retest")
 _URL = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 MAX_DOCUMENT_BYTES = 10_000_000
+MAX_EVIDENCE_RECORDS = 2000
 
 
 def safe_text(value: str) -> str:
@@ -181,8 +182,13 @@ def build_document(
             select(Retest)
             .where(Retest.engagement_id == engagement.id, Retest.finding_id.in_(by_id))
             .order_by(Retest.tested_at, Retest.sequence_number)
+            .limit(2001)
         )
     )
+    if len(retests) > 2000:
+        raise HTTPException(
+            422, "Reduce report selection; at most 2000 Retest records are supported"
+        )
     latest = {item.finding_id: item for item in retests}
     retest_links = list(
         session.execute(
@@ -192,13 +198,14 @@ def build_document(
     # A snapshot can support both the initial Finding and later Retests. Retest
     # links must never remove it from the Finding's preserved evidence history.
     finding_evidence = list(
-        session.scalars(
-            select(Evidence)
+        session.execute(
+            select(Evidence.id, Evidence.finding_id, Evidence.display_id)
             .where(
                 Evidence.engagement_id == engagement.id,
                 Evidence.finding_id.in_(by_id),
             )
             .order_by(Evidence.sequence_number)
+            .limit(MAX_EVIDENCE_RECORDS + 1)
         )
     )
     evidence_ids = {e.id for e in finding_evidence}
@@ -264,20 +271,29 @@ def build_document(
                 "evidence_ids": chain_links,
             }
         )
-    evidence = list(
-        session.scalars(
-            select(Evidence)
-            .where(Evidence.engagement_id == engagement.id, Evidence.id.in_(evidence_ids))
-            .order_by(Evidence.sequence_number)
-        )
-    )
-    if {e.id for e in evidence} != evidence_ids:
-        raise HTTPException(422, "Report Evidence must exist in the same Engagement")
-    if len(evidence) > 2000 or len(shown_retests) > 2000:
+    if len(evidence_ids) > MAX_EVIDENCE_RECORDS:
         raise HTTPException(
-            422, "Reduce report selection; at most 2000 Evidence and Retest records are supported"
+            422, "Reduce report selection; at most 2000 Evidence records are supported"
         )
-    evidence_names = {e.id: e.display_id for e in evidence}
+    evidence_names = {}
+    evidence_documents = []
+    evidence_bytes = 0
+    # Fetch one immutable payload at a time. Keep only bounded excerpts, never
+    # an ORM list of all selected raw snapshots, in the canonical document.
+    for item in session.scalars(
+        select(Evidence)
+        .where(Evidence.engagement_id == engagement.id, Evidence.id.in_(evidence_ids))
+        .order_by(Evidence.sequence_number)
+        .execution_options(yield_per=1)
+    ):
+        rendered = evidence_document(item)
+        evidence_bytes += len(json.dumps(rendered, default=str, ensure_ascii=False).encode())
+        if evidence_bytes > MAX_DOCUMENT_BYTES:
+            raise HTTPException(422, "Report exceeds 10 MB; reduce the selected content")
+        evidence_names[item.id] = item.display_id
+        evidence_documents.append(rendered)
+    if set(evidence_names) != evidence_ids:
+        raise HTTPException(422, "Report Evidence must exist in the same Engagement")
     for chain in document_chains:
         chain["evidence_ids"] = sorted(evidence_names[e] for e in chain["evidence_ids"])
         for step in chain["steps"]:
@@ -387,7 +403,7 @@ def build_document(
                     },
                 },
                 "findings": document_findings,
-                "evidence": [evidence_document(e) for e in evidence],
+                "evidence": evidence_documents,
                 "attack_chains": document_chains,
                 "retests": document_retests,
                 "assessments": [dict(item) for item in assessments],
