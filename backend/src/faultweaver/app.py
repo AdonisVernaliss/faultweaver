@@ -4,7 +4,6 @@ from functools import partial
 
 import httpx
 from fastapi import FastAPI, status
-from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -23,7 +22,7 @@ from faultweaver.findings.router import router as findings_router
 from faultweaver.http_traffic.router import router as http_traffic_router
 from faultweaver.identities.router import router as identities_router
 from faultweaver.imports.router import router as imports_router
-from faultweaver.redaction import install_log_redaction, sanitize_for_log
+from faultweaver.redaction import install_log_redaction
 from faultweaver.reports.router import router as reports_router
 from faultweaver.scope.router import router as scope_router
 from faultweaver.storage.configuration import database_path, key_provider_for
@@ -78,7 +77,12 @@ def create_app(
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(_: object, error: RequestValidationError) -> JSONResponse:
-        errors = sanitize_for_log(jsonable_encoder(error.errors()))
+        # Validation input/context can contain arbitrary credentials, including
+        # malformed ones that recognition-based redaction cannot identify.
+        errors = [
+            {"loc": item["loc"], "type": item["type"], "msg": "Invalid request value"}
+            for item in error.errors()
+        ]
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": errors},

@@ -158,7 +158,7 @@ def test_identity_replay_replaces_auth_and_preserves_the_original(
             "authorization": REDACTED,
             "x-api-key": REDACTED,
             "cookie": REDACTED,
-            "x-tenant": "tenant-b",
+            "x-tenant": REDACTED,
         }
         assert {item["name"].lower(): item["value"] for item in replay["response_headers"]}[
             "set-cookie"

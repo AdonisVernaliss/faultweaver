@@ -44,7 +44,7 @@ def test_identity_crud_is_scoped_and_credentials_are_redacted(app_client: TestCl
     assert identity["api_key_value"] == REDACTED
     assert identity["cookies"][0]["value"] == REDACTED
     assert identity["custom_headers"] == [
-        {"name": "X-Tenant", "value": "tenant-a"},
+        {"name": "X-Tenant", "value": REDACTED},
         {"name": "X-Api-Key-Secondary", "value": REDACTED},
     ]
 
@@ -200,4 +200,4 @@ def test_validation_errors_do_not_echo_identity_secrets(app_client: TestClient) 
 
     assert response.status_code == 422
     assert "synthetic-validation-secret" not in response.text
-    assert REDACTED in response.text
+    assert "input" not in response.json()["detail"][0]

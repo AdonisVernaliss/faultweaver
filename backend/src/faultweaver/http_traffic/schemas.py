@@ -2,7 +2,14 @@ from datetime import datetime
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
-from faultweaver.redaction import redact_body, redact_headers, redact_query, redact_url
+from faultweaver.redaction import (
+    exchange_secret_values,
+    redact_body,
+    redact_exchange_values,
+    redact_headers,
+    redact_query,
+    redact_url,
+)
 
 
 class HeaderEntry(BaseModel):
@@ -82,7 +89,11 @@ def public_summary(exchange: object) -> ExchangeSummary:
 
 
 def public_exchange(exchange: object) -> ExchangeResponse:
-    return ExchangeResponse(
+    legacy_identity = exchange.auth_source == "identity" and not all(  # type: ignore[attr-defined]
+        "sensitive" in item
+        for item in exchange.request_headers  # type: ignore[attr-defined]
+    )
+    public = ExchangeResponse(
         id=exchange.id,  # type: ignore[attr-defined]
         engagement_id=exchange.engagement_id,  # type: ignore[attr-defined]
         parent_exchange_id=exchange.parent_exchange_id,  # type: ignore[attr-defined]
@@ -103,7 +114,12 @@ def public_exchange(exchange: object) -> ExchangeResponse:
         host=exchange.host,  # type: ignore[attr-defined]
         path=exchange.path,  # type: ignore[attr-defined]
         query=redact_query(exchange.query),  # type: ignore[attr-defined]
-        request_headers=redact_headers(exchange.request_headers),  # type: ignore[attr-defined]
+        request_headers=redact_headers(
+            exchange.request_headers,  # type: ignore[attr-defined]
+            # Older identity replays lack immutable header provenance. Fail
+            # closed instead of trusting the identity's mutable current fields.
+            redact_all=legacy_identity,
+        ),
         request_body=redact_body(exchange.request_body),  # type: ignore[attr-defined]
         response_status=exchange.response_status,  # type: ignore[attr-defined]
         response_headers=redact_headers(exchange.response_headers),  # type: ignore[attr-defined]
@@ -112,4 +128,13 @@ def public_exchange(exchange: object) -> ExchangeResponse:
         response_truncated=exchange.response_truncated,  # type: ignore[attr-defined]
         redirect_chain=[redact_url(item) for item in exchange.redirect_chain],  # type: ignore[attr-defined]
         created_at=exchange.created_at,  # type: ignore[attr-defined]
+    )
+    return ExchangeResponse.model_validate(
+        redact_exchange_values(
+            public.model_dump(),
+            exchange_secret_values(
+                exchange.request_headers,
+                legacy_identity=legacy_identity,  # type: ignore[attr-defined]
+            ),
+        )
     )

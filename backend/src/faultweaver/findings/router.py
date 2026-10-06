@@ -59,7 +59,7 @@ def public_evidence(session: Session, item: Evidence) -> EvidenceResponse:
         display_id=item.display_id,
         evidence_type=item.evidence_type,
         title=item.title,
-        snapshot=item.snapshot,
+        snapshot=redact_mapping(item.snapshot),
         source_exchange_id=item.source_exchange_id,
         source_comparison_id=item.source_comparison_id,
         source_candidate_id=item.source_candidate_id,

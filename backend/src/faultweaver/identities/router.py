@@ -10,7 +10,7 @@ from faultweaver.database import get_session
 from faultweaver.engagements.router import get_engagement_or_404
 from faultweaver.identities.models import Identity
 from faultweaver.identities.schemas import IdentityCreate, IdentityResponse, IdentityUpdate
-from faultweaver.redaction import REDACTED, is_sensitive_header
+from faultweaver.redaction import REDACTED
 
 router = APIRouter(tags=["identities"])
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -30,7 +30,7 @@ def public_identity(identity: Identity) -> IdentityResponse:
         custom_headers=[
             {
                 "name": item["name"],
-                "value": REDACTED if is_sensitive_header(item["name"]) else item["value"],
+                "value": REDACTED,
             }
             for item in identity.custom_headers
         ],

@@ -221,7 +221,10 @@ def compare_identities(
     except ScopeViolationError as error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
     except (httpx.HTTPError, RedirectLimitError, ValidationError) as error:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Comparison replay failed; check the request and target",
+        ) from error
 
     session.add_all([replay_a, replay_b])
     session.flush()
@@ -535,11 +538,18 @@ def _replay_for_identity(
 
 
 def _normalize_exchange(exchange: HttpExchange):
+    from faultweaver.redaction import exchange_secret_values
+
     return normalize_response(
         status=exchange.response_status,
         headers=exchange.response_headers,
         body=exchange.response_body,
         redirect_chain=exchange.redirect_chain,
+        secret_values=exchange_secret_values(
+            exchange.request_headers,
+            legacy_identity=exchange.auth_source == "identity"
+            and not all("sensitive" in item for item in exchange.request_headers),
+        ),
     )
 
 

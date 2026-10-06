@@ -5,7 +5,7 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from faultweaver.redaction import redact_body, redact_headers
+from faultweaver.redaction import redact_body, redact_exchange_values, redact_headers, redact_url
 
 _UUID = re.compile(
     r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b",
@@ -48,10 +48,14 @@ def normalize_response(
     headers: list[dict[str, str]],
     body: str | None,
     redirect_chain: list[str] | None = None,
+    secret_values: set[str] | None = None,
 ) -> NormalizedResponse:
-    safe_headers = redact_headers(headers)
+    protected = redact_exchange_values(
+        {"response_headers": headers, "response_body": body}, secret_values or set()
+    )
+    safe_headers = redact_headers(protected["response_headers"])
     header_map = _header_map(safe_headers)
-    safe_body = redact_body(body) or ""
+    safe_body = redact_body(protected["response_body"]) or ""
     content_type = header_map.get("content-type")
     if content_type is not None:
         content_type = content_type.split(";", 1)[0].strip().lower()
@@ -82,7 +86,7 @@ def normalize_response(
         json_structure=json_structure,
         json_fields=json_fields,
         selected_headers={key: header_map[key] for key in SELECTED_HEADERS if key in header_map},
-        redirect_chain=list(redirect_chain or []),
+        redirect_chain=[redact_url(url) for url in redirect_chain or []],
     )
 
 

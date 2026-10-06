@@ -9,6 +9,7 @@ from faultweaver.http_traffic.models import HttpExchange
 from faultweaver.http_traffic.replay import apply_identity, execute_replay
 from faultweaver.http_traffic.schemas import HeaderEntry, ReplayCreate
 from faultweaver.identities.models import Identity
+from faultweaver.redaction import is_sensitive_header
 from faultweaver.scope.rules import ScopeRuleValue, split_http_url
 
 
@@ -30,7 +31,14 @@ def build_replay_exchange(
     )
     body = payload.body if "body" in payload.model_fields_set else original.request_body
     identity: Identity | None = None
-    managed_header_names: set[str] = set()
+    # Carry immutable auth-header provenance even when replaying an old replay
+    # without selecting its (possibly changed or archived) identity again.
+    managed_header_names = {
+        header["name"].lower()
+        for header in original.request_headers
+        if header.get("sensitive")
+        or (original.auth_source == "identity" and "sensitive" not in header)
+    }
     auth_source = "original"
     if payload.identity_id is not None:
         identity = session.scalar(
@@ -48,7 +56,7 @@ def build_replay_exchange(
                 Identity.archived_at.is_(None),
             )
         )
-        managed_header_names = {
+        managed_header_names |= {
             name.lower()
             for item in engagement_identities
             for name in (
@@ -91,7 +99,14 @@ def build_replay_exchange(
         host=host,
         path=path,
         query=urlsplit(result.url).query,
-        request_headers=result.request_headers,
+        request_headers=[
+            {
+                **header,
+                "sensitive": header["name"].lower() in managed_header_names
+                or is_sensitive_header(header["name"]),
+            }
+            for header in result.request_headers
+        ],
         request_body=result.request_body,
         response_status=result.status,
         response_headers=result.response_headers,

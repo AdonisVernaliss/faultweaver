@@ -191,7 +191,10 @@ def replay_request(
     except ScopeViolationError as error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
     except (httpx.HTTPError, RedirectLimitError, ValidationError) as error:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error)) from error
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Replay failed; check the request and target",
+        ) from error
 
     session.add(replay)
     session.commit()

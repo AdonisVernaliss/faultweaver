@@ -34,7 +34,12 @@ _INLINE_NAMED_SECRET = re.compile(r"(?i)(\b(?:api[_-]?key|password|secret|token)
 
 def is_sensitive_header(name: str) -> bool:
     lowered = name.strip().lower()
-    return lowered in _SENSITIVE_HEADERS or "api-key" in lowered or "apikey" in lowered
+    return (
+        lowered in _SENSITIVE_HEADERS
+        or "api-key" in lowered
+        or "apikey" in lowered
+        or is_sensitive_key(lowered)
+    )
 
 
 def is_sensitive_key(name: str) -> bool:
@@ -42,11 +47,17 @@ def is_sensitive_key(name: str) -> bool:
     return bool(_SENSITIVE_KEY.search(normalized) or _PASSWORD_COMPONENT.search(normalized))
 
 
-def redact_headers(headers: list[dict[str, str]]) -> list[dict[str, str]]:
+def redact_headers(
+    headers: list[dict[str, str]], *, redact_all: bool = False
+) -> list[dict[str, str]]:
     return [
         {
             "name": header["name"],
-            "value": REDACTED if is_sensitive_header(header["name"]) else header["value"],
+            "value": REDACTED
+            if redact_all or header.get("sensitive") or is_sensitive_header(header["name"])
+            else redact_url(header["value"])
+            if header["name"].lower() in {"location", "content-location", "referer"}
+            else header["value"],
         }
         for header in headers
     ]
@@ -106,10 +117,73 @@ def redact_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
     return _redact_value(dict(value))
 
 
+def redact_known_values(value: Any, secrets: set[str]) -> Any:
+    """Remove exact known credential reflections without changing stored traffic."""
+    if isinstance(value, str):
+        for secret in sorted(secrets, key=len, reverse=True):
+            if secret and secret != REDACTED:
+                value = value.replace(secret, REDACTED)
+        return value
+    if isinstance(value, dict):
+        return {key: redact_known_values(item, secrets) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_known_values(item, secrets) for item in value]
+    return value
+
+
+def exchange_secret_values(headers: list[dict], *, legacy_identity: bool = False) -> set[str]:
+    values = set()
+    for header in headers:
+        if not (legacy_identity or header.get("sensitive") or is_sensitive_header(header["name"])):
+            continue
+        value = header["value"]
+        if value and value != REDACTED:
+            values.add(value)
+            if header["name"].lower() in {"authorization", "proxy-authorization"}:
+                values.add(value.partition(" ")[2])
+            if header["name"].lower() == "cookie":
+                values.update(part.partition("=")[2].strip() for part in value.split(";"))
+    return values - {"", REDACTED}
+
+
+def redact_exchange_values(value: dict, secrets: set[str]) -> dict:
+    result = dict(value)
+    for name in ("request_body", "response_body"):
+        body = result.get(name)
+        if body is not None:
+            try:
+                parsed = json.loads(body)
+            except (ValueError, TypeError):
+                result[name] = redact_known_values(body, secrets)
+            else:
+                result[name] = json.dumps(
+                    redact_known_values(parsed, secrets), separators=(",", ":"), ensure_ascii=False
+                )
+    for name in ("request_headers", "response_headers"):
+        if name in result:
+            result[name] = [
+                {**header, "value": redact_known_values(header["value"], secrets)}
+                for header in result[name]
+            ]
+    for name in ("url", "path", "query", "redirect_chain", "crawl_error"):
+        if name in result:
+            result[name] = redact_known_values(result[name], secrets)
+    # IDs, provenance, methods and other domain metadata are not payload text.
+    return result
+
+
 def _redact_value(value: Any, key: str | None = None) -> Any:
     if key is not None and is_sensitive_key(key):
         return REDACTED
     if isinstance(value, dict):
+        if isinstance(value.get("request_headers"), list) and "auth_source" in value:
+            headers = value["request_headers"]
+            legacy = value["auth_source"] == "identity" and not all(
+                "sensitive" in item for item in headers
+            )
+            value = redact_exchange_values(
+                value, exchange_secret_values(headers, legacy_identity=legacy)
+            )
         if (
             isinstance(value.get("name"), str)
             and "value" in value
