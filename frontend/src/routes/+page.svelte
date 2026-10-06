@@ -26,9 +26,10 @@
     Engagement,
     EngagementDetail,
     AuthorizationMatrix as Matrix,
-    Candidate,
+    CandidateSummary,
     Comparison,
     Evidence,
+    EvidenceSummary,
     Exchange,
     ExchangeSummary,
     ExchangeDetail,
@@ -55,9 +56,9 @@
   let filterTimer: ReturnType<typeof setTimeout> | undefined;
   let identities = $state<Identity[]>([]);
   let matrix = $state<Matrix>({ identities: [], rows: [] });
-  let candidates = $state<Candidate[]>([]);
+  let candidates = $state<CandidateSummary[]>([]);
   let findings = $state<Finding[]>([]);
-  let evidence = $state<Evidence[]>([]);
+  let evidence = $state<EvidenceSummary[]>([]);
   let retests = $state<Retest[]>([]);
   let attackChains = $state<AttackChain[]>([]);
   let attackSurface = $state<AttackSurfaceEndpoint[]>([]);
@@ -121,9 +122,9 @@
         api<ImportBatch[]>(`engagements/${id}/imports`),
         api<Identity[]>(`engagements/${id}/identities`),
         api<Matrix>(`engagements/${id}/authorization-matrix`),
-        api<Candidate[]>(`engagements/${id}/candidates`),
+        api<CandidateSummary[]>(`engagements/${id}/candidates`),
         api<Finding[]>(`engagements/${id}/findings`),
-        api<Evidence[]>(`engagements/${id}/evidence`),
+        api<EvidenceSummary[]>(`engagements/${id}/evidence`),
         api<Retest[]>(`engagements/${id}/retests`),
         api<AttackChain[]>(`engagements/${id}/attack-chains`),
         api<AttackChain[]>(`engagements/${id}/attack-chains?status=Archived`)
@@ -205,7 +206,7 @@
     if (!engagement) return;
     [matrix, candidates] = await Promise.all([
       api<Matrix>(`engagements/${engagement.id}/authorization-matrix`),
-      api<Candidate[]>(`engagements/${engagement.id}/candidates`)
+      api<CandidateSummary[]>(`engagements/${engagement.id}/candidates`)
     ]);
   }
 
@@ -213,7 +214,7 @@
     if (!engagement) return;
     [findings, evidence, retests] = await Promise.all([
       api<Finding[]>(`engagements/${engagement.id}/findings`),
-      api<Evidence[]>(`engagements/${engagement.id}/evidence`),
+      api<EvidenceSummary[]>(`engagements/${engagement.id}/evidence`),
       api<Retest[]>(`engagements/${engagement.id}/retests`)
     ]);
   }
@@ -478,7 +479,7 @@
       {:else if activeView === 'findings'}
         <FindingPanel engagementId={engagement.id} {findings} {evidence} {attackChains} focusId={focusedFindingId} onchanged={refreshLifecycle} onchainschanged={refreshChainsAndFindings} onevidence={savedEvidence} onopenchain={openAttackChain} />
       {:else if activeView === 'evidence'}
-        <EvidencePanel {evidence} {findings} />
+        <EvidencePanel engagementId={engagement.id} {evidence} {findings} />
       {:else if activeView === 'retests'}
         <RetestPanel {retests} {findings} onopen={openFinding} />
       {:else}

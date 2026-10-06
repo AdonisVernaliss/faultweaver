@@ -1,11 +1,11 @@
 <script lang="ts">
   import { api } from '../api';
-  import type { AttackChain, AttackChainStep, Evidence, Finding } from '../types';
+  import type { AttackChain, AttackChainStep, EvidenceSummary, Finding } from '../types';
 
   let {
     engagementId, chains, findings, evidence, focusId, onchanged, onfinding
   }: {
-    engagementId: string; chains: AttackChain[]; findings: Finding[]; evidence: Evidence[];
+    engagementId: string; chains: AttackChain[]; findings: Finding[]; evidence: EvidenceSummary[];
     focusId: string; onchanged: () => Promise<void>; onfinding: (id: string) => void;
   } = $props();
 

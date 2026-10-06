@@ -1,9 +1,9 @@
 <script lang="ts">
   import { api } from '../api';
-  import type { AttackChain, Evidence, Finding, FindingStatus, Retest, RetestStatus, Severity } from '../types';
+  import type { AttackChain, Evidence, EvidenceSummary, Finding, FindingStatus, Retest, RetestStatus, Severity } from '../types';
 
   let { engagementId, findings, evidence, attackChains, focusId, onchanged, onchainschanged, onevidence, onopenchain }: {
-    engagementId: string; findings: Finding[]; evidence: Evidence[]; attackChains: AttackChain[]; focusId: string;
+    engagementId: string; findings: Finding[]; evidence: EvidenceSummary[]; attackChains: AttackChain[]; focusId: string;
     onchanged: () => Promise<void>; onchainschanged: () => Promise<void>;
     onevidence: (item: Evidence) => void; onopenchain: (id: string) => void;
   } = $props();

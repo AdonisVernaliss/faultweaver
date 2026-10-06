@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from faultweaver.analysis.models import Candidate, ResponseComparison
 from faultweaver.database import get_session
@@ -19,6 +19,7 @@ from faultweaver.findings.models import (
 from faultweaver.findings.schemas import (
     EvidenceCreate,
     EvidenceResponse,
+    EvidenceSummary,
     FindingResponse,
     FindingUpdate,
     HistoryResponse,
@@ -303,15 +304,20 @@ def create_evidence(
     return public_evidence(session, item)
 
 
-@router.get("/api/engagements/{engagement_id}/evidence", response_model=list[EvidenceResponse])
-def list_evidence(engagement_id: str, session: SessionDep) -> list[EvidenceResponse]:
+@router.get("/api/engagements/{engagement_id}/evidence", response_model=list[EvidenceSummary])
+def list_evidence(engagement_id: str, session: SessionDep) -> list[EvidenceSummary]:
     get_engagement_or_404(session, engagement_id)
     items = session.scalars(
         select(Evidence)
+        .options(
+            load_only(
+                *(getattr(Evidence, name) for name in EvidenceSummary.model_fields), raiseload=True
+            )
+        )
         .where(Evidence.engagement_id == engagement_id)
         .order_by(Evidence.sequence_number.desc())
     )
-    return [public_evidence(session, item) for item in items]
+    return [EvidenceSummary.model_validate(item) for item in items]
 
 
 @router.get(

@@ -5,11 +5,11 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import ValidationError
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from faultweaver.analysis.candidates import authorization_candidate
 from faultweaver.analysis.diffing import compare_responses
-from faultweaver.analysis.models import Candidate, ResponseComparison
+from faultweaver.analysis.models import Candidate, ResponseComparison, candidate_replays
 from faultweaver.analysis.normalization import normalize_response
 from faultweaver.analysis.schemas import (
     AuthorizationMatrixCell,
@@ -18,6 +18,7 @@ from faultweaver.analysis.schemas import (
     AuthorizationMatrixRow,
     CandidateResponse,
     CandidateReview,
+    CandidateSummary,
     CandidateUpdate,
     ComparisonCreate,
     ComparisonResponse,
@@ -40,25 +41,76 @@ router = APIRouter(tags=["analysis"])
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
-def public_candidate(session: Session, candidate: Candidate) -> CandidateResponse:
+def public_candidate(
+    session: Session, candidate: Candidate, *, include_payload: bool = True
+) -> CandidateResponse:
     comparison = (
-        session.get(ResponseComparison, candidate.comparison_id)
+        session.get(
+            ResponseComparison,
+            candidate.comparison_id,
+            options=[]
+            if include_payload
+            else [
+                load_only(
+                    ResponseComparison.id,
+                    ResponseComparison.identity_a_id,
+                    ResponseComparison.identity_b_id,
+                    raiseload=True,
+                )
+            ],
+        )
         if candidate.comparison_id is not None
         else None
     )
-    original = session.get(HttpExchange, candidate.original_exchange_id)
-    finding = session.scalar(select(Finding).where(Finding.candidate_id == candidate.id))
+    original = session.get(
+        HttpExchange,
+        candidate.original_exchange_id,
+        options=[]
+        if include_payload
+        else [
+            load_only(
+                HttpExchange.id,
+                HttpExchange.method,
+                HttpExchange.host,
+                HttpExchange.path,
+                raiseload=True,
+            )
+        ],
+    )
+    finding = session.scalar(
+        select(Finding)
+        .options(load_only(Finding.id, raiseload=True))
+        .where(Finding.candidate_id == candidate.id)
+    )
     identities: list[dict[str, str]] = []
     comparison_result: dict[str, object] = {}
     if comparison is not None:
-        comparison_result = comparison.result
+        comparison_result = comparison.result if include_payload else {}
         identity_rows = session.scalars(
-            select(Identity).where(
-                Identity.id.in_([comparison.identity_a_id, comparison.identity_b_id])
-            )
+            select(Identity)
+            .options(load_only(Identity.id, Identity.name, raiseload=True))
+            .where(Identity.id.in_([comparison.identity_a_id, comparison.identity_b_id]))
         )
         identities = [{"id": item.id, "name": item.name} for item in identity_rows]
-    replays = list(candidate.supporting_replays)
+    replays = (
+        list(candidate.supporting_replays)
+        if include_payload
+        else list(
+            session.scalars(
+                select(HttpExchange)
+                .join(candidate_replays, candidate_replays.c.exchange_id == HttpExchange.id)
+                .where(candidate_replays.c.candidate_id == candidate.id)
+                .options(
+                    load_only(
+                        HttpExchange.id,
+                        HttpExchange.identity_id,
+                        HttpExchange.response_status,
+                        raiseload=True,
+                    )
+                )
+            )
+        )
+    )
     operator_notes = session.scalars(
         select(OperatorNote)
         .where(OperatorNote.candidate_id == candidate.id)
@@ -74,7 +126,7 @@ def public_candidate(session: Session, candidate: Candidate) -> CandidateRespons
         check_id=candidate.check_id,
         suggested_severity=candidate.suggested_severity,
         affected_exchange_ids=candidate.affected_exchange_ids,
-        supporting_replay_ids=[item.id for item in candidate.supporting_replays],
+        supporting_replay_ids=[item.id for item in replays],
         title=candidate.title,
         category=candidate.category,
         confidence=candidate.confidence,
@@ -90,8 +142,8 @@ def public_candidate(session: Session, candidate: Candidate) -> CandidateRespons
             "host": original.host if original else "",
             "path": original.path if original else "",
         },
-        original=public_exchange(original) if original else None,
-        supporting_replays=[public_exchange(item) for item in replays],
+        original=public_exchange(original) if original and include_payload else None,
+        supporting_replays=[public_exchange(item) for item in replays] if include_payload else [],
         comparison_result=comparison_result,
         identities=identities,
         response_statuses=[
@@ -213,7 +265,7 @@ def get_comparison(comparison_id: str, session: SessionDep) -> ComparisonRespons
 
 @router.get(
     "/api/engagements/{engagement_id}/candidates",
-    response_model=list[CandidateResponse],
+    response_model=list[CandidateSummary],
 )
 def list_candidates(engagement_id: str, session: SessionDep) -> list[CandidateResponse]:
     get_engagement_or_404(session, engagement_id)
@@ -222,7 +274,7 @@ def list_candidates(engagement_id: str, session: SessionDep) -> list[CandidateRe
         .where(Candidate.engagement_id == engagement_id, Candidate.archived_at.is_(None))
         .order_by(Candidate.created_at.desc())
     )
-    return [public_candidate(session, candidate) for candidate in candidates]
+    return [public_candidate(session, candidate, include_payload=False) for candidate in candidates]
 
 
 @router.get(
@@ -384,6 +436,7 @@ def authorization_matrix(engagement_id: str, session: SessionDep) -> Authorizati
     identities = list(
         session.scalars(
             select(Identity)
+            .options(load_only(Identity.id, Identity.name, Identity.is_anonymous, raiseload=True))
             .where(Identity.engagement_id == engagement_id, Identity.archived_at.is_(None))
             .order_by(Identity.is_anonymous.desc(), Identity.name)
         )
@@ -391,6 +444,15 @@ def authorization_matrix(engagement_id: str, session: SessionDep) -> Authorizati
     originals = list(
         session.scalars(
             select(HttpExchange)
+            .options(
+                load_only(
+                    HttpExchange.id,
+                    HttpExchange.method,
+                    HttpExchange.host,
+                    HttpExchange.path,
+                    raiseload=True,
+                )
+            )
             .where(
                 HttpExchange.engagement_id == engagement_id,
                 HttpExchange.parent_exchange_id.is_(None),
@@ -403,6 +465,14 @@ def authorization_matrix(engagement_id: str, session: SessionDep) -> Authorizati
         replays = list(
             session.scalars(
                 select(HttpExchange)
+                .options(
+                    load_only(
+                        HttpExchange.id,
+                        HttpExchange.identity_id,
+                        HttpExchange.response_status,
+                        raiseload=True,
+                    )
+                )
                 .where(HttpExchange.parent_exchange_id == original.id)
                 .order_by(HttpExchange.created_at.desc())
             )

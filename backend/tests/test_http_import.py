@@ -116,6 +116,74 @@ def test_request_listing_never_materializes_payload_columns(app_client: TestClie
     )
 
 
+def test_workspace_lists_do_not_materialize_http_or_evidence_payloads(app_client: TestClient):
+    from tests.test_finding_lifecycle import create_candidate
+
+    engagement = create_engagement(app_client)
+    authorize(app_client, engagement)
+    comparison = create_candidate(app_client, engagement)
+    prefix = f"/api/engagements/{engagement}"
+    saved = app_client.post(
+        prefix + "/evidence",
+        json={
+            "evidence_type": "Response Comparison",
+            "title": "List boundary",
+            "source_comparison_id": comparison["id"],
+        },
+    ).json()
+    finding = app_client.post(
+        prefix + "/candidates/" + comparison["candidate"]["id"] + "/promote",
+        json={"severity": "High"},
+    ).json()
+    chain = app_client.post(prefix + "/attack-chains", json={"title": "Metadata boundary"}).json()
+    app_client.post(
+        prefix + "/attack-chains/" + chain["id"] + "/steps",
+        json={"step_type": "Finding", "finding_id": finding["id"]},
+    )
+    app_client.post(
+        prefix + "/attack-chains/" + chain["id"] + "/evidence", json={"evidence_id": saved["id"]}
+    )
+    statements = []
+    engine = app_client.app.state.session_factory.kw["bind"]
+
+    def observe(connection, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", observe)
+    try:
+        for endpoint in (
+            "requests",
+            "authorization-matrix",
+            "candidates",
+            "evidence",
+            "findings",
+            "retests",
+            "attack-chains",
+        ):
+            response = app_client.get(prefix + "/" + endpoint)
+            assert response.status_code == 200
+    finally:
+        event.remove(engine, "before_cursor_execute", observe)
+    for field in (
+        "http_exchanges.request_body",
+        "http_exchanges.response_body",
+        "http_exchanges.request_headers",
+        "http_exchanges.response_headers",
+        "response_comparisons.result",
+        "evidence.snapshot",
+        "identities.bearer_token",
+    ):
+        assert all(field not in statement for statement in statements), field
+    assert "snapshot" not in app_client.get(prefix + "/evidence").json()[0]
+    assert "original" not in app_client.get(prefix + "/candidates").json()[0]
+    assert app_client.get(prefix + "/evidence/" + saved["id"]).json() == {
+        **saved,
+        "finding_id": finding["id"],
+    }
+    detail = app_client.get(prefix + "/candidates/" + comparison["candidate"]["id"]).json()
+    assert detail["original"] and detail["supporting_replays"] and detail["comparison_result"]
+
+
 def test_request_search_spans_pages_and_matches_literal_method_status_and_query(
     app_client: TestClient,
 ) -> None:

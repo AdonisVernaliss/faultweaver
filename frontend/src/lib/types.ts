@@ -70,6 +70,9 @@ export interface ExchangeList {
   total: number;
 }
 
+export type CandidateSummary = Omit<Candidate, 'original' | 'supporting_replays' | 'comparison_result'>;
+export type EvidenceSummary = Omit<Evidence, 'snapshot' | 'notes'>;
+
 export type ExchangeSummary = Omit<Exchange,
   'request_headers' | 'request_body' | 'response_headers' | 'response_body' | 'redirect_chain' | 'crawl_error'>;
 

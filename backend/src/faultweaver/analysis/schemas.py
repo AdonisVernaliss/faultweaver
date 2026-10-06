@@ -17,7 +17,7 @@ class ComparisonCreate(BaseModel):
         return self
 
 
-class CandidateResponse(BaseModel):
+class CandidateSummary(BaseModel):
     id: str
     engagement_id: str
     comparison_id: str | None
@@ -39,14 +39,17 @@ class CandidateResponse(BaseModel):
     reasoning: list[str]
     notes: str
     target: dict[str, str]
-    original: ExchangeResponse | None
-    supporting_replays: list[ExchangeResponse]
-    comparison_result: dict[str, object]
     identities: list[dict[str, str]]
     response_statuses: list[dict[str, object]]
     operator_notes: list[dict[str, object]]
     created_at: datetime
     updated_at: datetime
+
+
+class CandidateResponse(CandidateSummary):
+    original: ExchangeResponse | None
+    supporting_replays: list[ExchangeResponse]
+    comparison_result: dict[str, object]
 
 
 class CandidateUpdate(BaseModel):

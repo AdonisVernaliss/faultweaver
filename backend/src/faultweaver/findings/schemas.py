@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Severity = Literal["Critical", "High", "Medium", "Low", "Informational"]
 FindingStatus = Literal[
@@ -57,19 +57,23 @@ class EvidenceCreate(BaseModel):
         return self
 
 
-class EvidenceResponse(BaseModel):
+class EvidenceSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: str
     engagement_id: str
     display_id: str
     evidence_type: str
     title: str
-    snapshot: dict[str, object]
     source_exchange_id: str | None
     source_comparison_id: str | None
     source_candidate_id: str | None
     finding_id: str | None
     author_label: str
     captured_at: datetime
+
+
+class EvidenceResponse(EvidenceSummary):
+    snapshot: dict[str, object]
     notes: list[NoteResponse] = []
 
 

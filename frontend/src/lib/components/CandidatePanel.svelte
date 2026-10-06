@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from '../api';
-  import type { Candidate, Evidence, Finding, Severity } from '../types';
+  import type { Candidate, CandidateSummary, Evidence, Finding, Severity } from '../types';
 
   let {
     engagementId,
@@ -11,7 +11,7 @@
     onevidence
   }: {
     engagementId: string;
-    candidates: Candidate[];
+    candidates: CandidateSummary[];
     focusId?: string;
     onchanged: () => Promise<void>;
     onpromoted: (finding: Finding) => void;

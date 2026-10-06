@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete, func, insert, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from faultweaver.attack_chains.models import (
     AttackChain,
@@ -63,6 +63,16 @@ def public_attack_chain(session: Session, chain: AttackChain) -> AttackChainResp
     chain_evidence = list(
         session.scalars(
             select(Evidence)
+            .options(
+                load_only(
+                    Evidence.id,
+                    Evidence.display_id,
+                    Evidence.title,
+                    Evidence.evidence_type,
+                    Evidence.captured_at,
+                    raiseload=True,
+                )
+            )
             .join(attack_chain_evidence, attack_chain_evidence.c.evidence_id == Evidence.id)
             .where(attack_chain_evidence.c.attack_chain_id == chain.id)
             .order_by(Evidence.sequence_number)
@@ -70,6 +80,16 @@ def public_attack_chain(session: Session, chain: AttackChain) -> AttackChainResp
     )
     step_evidence_rows = session.execute(
         select(attack_chain_step_evidence.c.step_id, Evidence)
+        .options(
+            load_only(
+                Evidence.id,
+                Evidence.display_id,
+                Evidence.title,
+                Evidence.evidence_type,
+                Evidence.captured_at,
+                raiseload=True,
+            )
+        )
         .join(Evidence, attack_chain_step_evidence.c.evidence_id == Evidence.id)
         .where(attack_chain_step_evidence.c.step_id.in_([step.id for step in steps]))
         .order_by(Evidence.sequence_number)
