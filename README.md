@@ -29,8 +29,8 @@ authentication and must not be exposed to a shared network or the public interne
 
 ## Quick Start
 
-Prerequisites: Docker with Compose, Python 3.13+ and `uv`. Native development
-also needs Node.js 22.17+ and npm. The first key is created explicitly, not by
+Prerequisites: Docker with Compose, Python 3.13 and `uv`. Native development
+also needs Node.js 22.x (22.17 or later in that major) and npm. The first key is created explicitly, not by
 application startup.
 
 ```bash
@@ -143,7 +143,9 @@ document, 5,000 records, and 1 MB per captured request or response body.
 
 ## Development
 
-Prerequisites: Python 3.13+, `uv`, and Node.js 22.17+.
+Release-validated runtimes: Python 3.13, `uv`, and Node.js 22.x (22.17 or later).
+The Python version file and frontend `.nvmrc` identify these runtimes; newer
+major versions are not covered by the release validation.
 
 ```bash
 uv sync --locked --project backend --all-groups

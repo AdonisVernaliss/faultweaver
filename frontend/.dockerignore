@@ -1,4 +1,17 @@
-node_modules
-.svelte-kit
-build
-npm-debug.log
+# Send only required source to the build, never local environment/state files.
+*
+!package.json
+!package-lock.json
+!tsconfig.json
+!vite.config.ts
+!src/
+!src/**
+!static/
+!static/**
+**/.env*
+**/*.db
+**/*.db-*
+**/*.har
+**/*.key
+**/*.pem
+**/*key*.json

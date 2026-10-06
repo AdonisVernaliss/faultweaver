@@ -15,9 +15,21 @@ frontend/.vite/
 
 # Local state and environment
 .env
+.env.*
+!.env.example
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+*.key
+*.pem
+*.key.json
+*master-key*.json
+storage-key*.json
+*.har
+secrets/
 data/
 
 # Editors and operating systems
