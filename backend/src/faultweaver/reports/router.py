@@ -13,6 +13,7 @@ from faultweaver.engagements.router import get_engagement_or_404
 from faultweaver.findings.service import allocate_display_id
 from faultweaver.reports.builder import build_document, canonical_json, safe_data
 from faultweaver.reports.models import Report, ReportRevision
+from faultweaver.reports.rendering import REPORT_CSP, render_document
 from faultweaver.reports.schemas import (
     GenerateRequest,
     ReportContent,
@@ -127,6 +128,23 @@ def preview_report(engagement_id: str, report_id: str, session: SessionDep):
     return build_document(session, _report(session, engagement_id, report_id), require_scope=False)
 
 
+@router.get(PREFIX + "/{report_id}/preview/html")
+def preview_html(engagement_id: str, report_id: str, session: SessionDep):
+    _transaction(session)
+    document = build_document(
+        session, _report(session, engagement_id, report_id), require_scope=False
+    )
+    return Response(
+        render_document(document, "html"),
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": REPORT_CSP + "; sandbox",
+        },
+    )
+
+
 @router.post(PREFIX + "/{report_id}/generate", response_model=RevisionSummary, status_code=201)
 def generate_report(
     engagement_id: str, report_id: str, payload: GenerateRequest, session: SessionDep
@@ -207,17 +225,25 @@ def export_report(
     engagement_id: str,
     report_id: str,
     number: int,
-    format_name: Literal["json"],
+    format_name: Literal["html", "md", "json"],
     session: SessionDep,
 ):
     document = _revision(session, engagement_id, report_id, number)
     filename = export_filename(document.report.display_id, number, format_name)
+    output = (
+        canonical_json(document)
+        if format_name == "json"
+        else render_document(document, format_name)
+    )
     return Response(
-        canonical_json(document),
-        media_type="application/json",
+        output,
+        media_type={"json": "application/json", "html": "text/html", "md": "text/markdown"}[
+            format_name
+        ],
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-store",
             "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": REPORT_CSP + "; sandbox",
         },
     )

@@ -291,6 +291,80 @@ def test_report_schema_contract(app_client, report_scenario):
     }
 
 
+@pytest.mark.parametrize("format_name", ["html", "md", "json"])
+def test_report_exports_share_content_and_reject_injection(
+    app_client, report_scenario, format_name
+):
+    from html.parser import HTMLParser
+
+    base = report_scenario["base"]
+    malicious = '<script>alert(1)</script><img src=x onerror="alert(2)">'
+    report = create_report(
+        app_client,
+        base,
+        executive_summary=malicious,
+        limitations="[click](javascript:alert(1))\n```\n# injected heading",
+    )
+    path = base + "/" + report["id"]
+    assert app_client.post(path + "/generate", json={"version": 1}).status_code == 201
+    response = app_client.get(path + "/revisions/1/export/" + format_name)
+    assert response.status_code == 200
+    assert response.content == app_client.get(path + "/revisions/1/export/" + format_name).content
+    for value in [
+        "FW-001",
+        "FW-002",
+        "EV-001",
+        "AC-001",
+        "RT-001",
+        "Still Vulnerable",
+        "Scope",
+        "Northstar",
+    ]:
+        assert value.lower() in response.text.lower()
+    for secret in ["report-query-secret", "report-header-secret", "report-password-secret"]:
+        assert secret not in response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    if format_name == "html":
+
+        class Inspector(HTMLParser):
+            def handle_starttag(self, tag, attrs):
+                assert tag not in {"script", "img", "iframe", "object", "embed", "form"}
+                assert not any(k.startswith("on") for k, _ in attrs)
+                assert all(not v or not v.lower().startswith("javascript:") for _, v in attrs)
+
+        Inspector().feed(response.text)
+        assert "&lt;script&gt;" in response.text
+        assert "@media print" in response.text
+        assert 'href="#FW-002"' in response.text
+    if format_name == "md":
+        assert malicious not in response.text
+        # Literal target HTML is permitted only inside safely bounded code fences.
+        import re
+
+        prose = re.sub(r"(?ms)^(`{3,})text\n.*?^\1\n", "", response.text)
+        assert "<script>" not in prose
+        assert "\n# injected heading" not in response.text
+        assert "1. Authenticate as the synthetic tenant." in response.text
+
+
+def test_report_export_path_and_preview_safety(app_client, report_scenario):
+    from fastapi import HTTPException
+
+    from faultweaver.reports.router import export_filename
+
+    for display_id in ["../../report", "/tmp/report", "REP-1\r\nX-Injected: bad"]:
+        with pytest.raises(HTTPException):
+            export_filename(display_id, 1, "html")
+    base = report_scenario["base"]
+    report = create_report(app_client, base)
+    response = app_client.get(base + "/" + report["id"] + "/preview/html")
+    assert response.status_code == 200
+    assert "default-src 'none'" in response.headers["content-security-policy"]
+    assert "sandbox" in response.headers["content-security-policy"]
+    assert "DRAFT PREVIEW" in response.text
+
+
 def test_report_candidates_are_not_findings_and_archived_defaults(app_client, report_scenario):
     from faultweaver.engagements.models import utc_now
     from tests.test_finding_lifecycle import create_candidate
