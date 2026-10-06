@@ -194,9 +194,13 @@ def render_document(document: ReportDocument, format_name: str) -> str:
         if finding.reproduction_steps:
             writer.heading(3, "Reproduction Steps")
             writer.ordered(finding.reproduction_steps)
-        writer.heading(3, "Original Evidence")
+        writer.heading(3, "Preserved Finding Evidence")
         writer.paragraph(
-            ", ".join(finding.original_evidence_ids) or "No original immutable Evidence linked."
+            ", ".join(finding.finding_evidence_ids) or "No immutable Evidence linked."
+        )
+        writer.paragraph(
+            "Original and supporting snapshots remain preserved here. Retest Evidence is "
+            "referenced separately below; a snapshot may support both."
         )
         if finding.remediation:
             writer.heading(3, "Remediation")

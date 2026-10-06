@@ -189,19 +189,19 @@ def build_document(
             select(retest_evidence).where(retest_evidence.c.retest_id.in_([r.id for r in retests]))
         )
     )
-    retest_link_ids = {row.evidence_id for row in retest_links}
-    original_evidence = list(
+    # A snapshot can support both the initial Finding and later Retests. Retest
+    # links must never remove it from the Finding's preserved evidence history.
+    finding_evidence = list(
         session.scalars(
             select(Evidence)
             .where(
                 Evidence.engagement_id == engagement.id,
                 Evidence.finding_id.in_(by_id),
-                Evidence.id.not_in(retest_link_ids),
             )
             .order_by(Evidence.sequence_number)
         )
     )
-    evidence_ids = {e.id for e in original_evidence}
+    evidence_ids = {e.id for e in finding_evidence}
     shown_retests = retests if content.include_retest_history else list(latest.values())
     evidence_ids.update(
         row.evidence_id for row in retest_links if row.retest_id in {r.id for r in shown_retests}
@@ -287,9 +287,9 @@ def build_document(
         for field in ("description", "impact", "reproduction_steps", "remediation"):
             if not getattr(finding, field):
                 warnings.append(f"{finding.display_id}: missing {field.replace('_', ' ')}.")
-        original_ids = [e.display_id for e in original_evidence if e.finding_id == finding.id]
-        if not original_ids:
-            warnings.append(f"{finding.display_id}: no original immutable Evidence selected.")
+        linked_ids = [e.display_id for e in finding_evidence if e.finding_id == finding.id]
+        if not linked_ids:
+            warnings.append(f"{finding.display_id}: no immutable Finding Evidence selected.")
         fields = (
             "display_id",
             "title",
@@ -308,7 +308,7 @@ def build_document(
             {
                 **{field: getattr(finding, field) for field in fields},
                 "archived": finding.archived_at is not None,
-                "original_evidence_ids": original_ids,
+                "finding_evidence_ids": linked_ids,
                 "latest_retest": latest[finding.id].status
                 if finding.id in latest
                 else "Not Retested",

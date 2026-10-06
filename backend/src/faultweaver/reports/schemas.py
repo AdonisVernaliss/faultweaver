@@ -115,7 +115,7 @@ class DocumentFinding(StrictModel):
     remediation: str
     references: list[str]
     confirmed_at: datetime
-    original_evidence_ids: list[str]
+    finding_evidence_ids: list[str]
     latest_retest: RetestStatus | Literal["Not Retested"]
 
 

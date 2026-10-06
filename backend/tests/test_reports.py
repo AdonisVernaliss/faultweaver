@@ -197,7 +197,7 @@ def test_canonical_document_order_summaries_evidence_and_retests(app_client, rep
         "Informational": 1,
     }
     assert doc["summary"]["retested_findings"] == 1
-    assert doc["findings"][0]["original_evidence_ids"] == ["EV-001"]
+    assert doc["findings"][0]["finding_evidence_ids"] == ["EV-001", "EV-002"]
     assert doc["retests"][0]["evidence_ids"] == ["EV-002"]
     assert [s["kind"] for s in doc["attack_chains"][0]["steps"]] == [
         "Finding",
@@ -466,3 +466,103 @@ def test_report_upgrade_from_encrypted_0007_and_restart(tmp_path):
         assert client.get(report_path + "/revisions/1/export/json").content == exported
         assert client.get(report_path).json()["status"] == "Generated"
         assert create_report(client, base)["display_id"] == "REP-002"
+
+
+def test_reused_evidence_survives_retest_and_latest_only_selection(app_client, report_scenario):
+    from datetime import UTC, datetime
+
+    with app_client.app.state.session_factory() as session:
+        session.get(Retest, "retest-1").tested_at = datetime(2026, 1, 1, tzinfo=UTC)
+        session.add(
+            Retest(
+                id="retest-2",
+                engagement_id="northstar",
+                finding_id="finding-2",
+                display_id="RT-002",
+                sequence_number=2,
+                status="Fixed",
+                tested_at=datetime(2026, 2, 1, tzinfo=UTC),
+            )
+        )
+        session.flush()
+        session.execute(
+            retest_evidence.insert().values(
+                retest_id="retest-2",
+                evidence_id="evidence-1",
+            )
+        )
+        session.commit()
+    base = report_scenario["base"]
+    report = create_report(app_client, base, include_retest_history=False)
+    doc = app_client.get(base + "/" + report["id"] + "/preview").json()
+    assert [r["display_id"] for r in doc["retests"]] == ["RT-002"]
+    assert doc["retests"][0]["evidence_ids"] == ["EV-001"]
+    assert doc["findings"][0]["finding_evidence_ids"] == ["EV-001", "EV-002"]
+    assert doc["findings"][0]["latest_retest"] == "Fixed"
+    assert doc["findings"][0]["severity"] == "High"
+    assert doc["summary"]["latest_retest_results"]["Fixed"] == 1
+
+
+def test_report_rejects_corrupt_cross_engagement_evidence_links(app_client, report_scenario):
+    from faultweaver.attack_chains.models import attack_chain_evidence
+
+    base = report_scenario["base"]
+    report = create_report(app_client, base)
+    with app_client.app.state.session_factory() as session:
+        session.add(
+            Evidence(
+                id="foreign-evidence",
+                engagement_id="other",
+                display_id="EV-001",
+                sequence_number=1,
+                title="Foreign confidential evidence",
+                evidence_type="Text",
+                snapshot={"text": "foreign-confidential-marker"},
+            )
+        )
+        session.flush()
+        session.execute(
+            attack_chain_evidence.insert().values(
+                attack_chain_id="chain-1",
+                evidence_id="foreign-evidence",
+            )
+        )
+        session.commit()
+    response = app_client.get(base + "/" + report["id"] + "/preview")
+    assert response.status_code == 422
+    assert "foreign-confidential-marker" not in response.text
+
+
+def test_report_never_reads_live_http_or_identity_payloads(app_client, report_scenario):
+    from sqlalchemy import event
+
+    statements = []
+    with app_client.app.state.session_factory() as session:
+        engine = session.get_bind()
+
+    def capture(connection, cursor, statement, parameters, context, executemany):
+        statements.append(statement.lower())
+
+    event.listen(engine, "before_cursor_execute", capture)
+    try:
+        base = report_scenario["base"]
+        report = create_report(app_client, base)
+        assert app_client.get(base + "/" + report["id"] + "/preview").status_code == 200
+        assert app_client.get(base + "/options").status_code == 200
+        assert not any("http_exchanges" in s or "identities" in s for s in statements)
+        statements.clear()
+        assert app_client.get(base).status_code == 200
+        assert not any("reports.content" in statement for statement in statements)
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)
+    assert not any("http_exchanges" in s or "identities" in s for s in statements)
+
+
+def test_markdown_fence_cannot_be_closed_by_target_evidence():
+    from faultweaver.reports.rendering import Writer
+
+    writer = Writer("md")
+    writer.code("```\n<script>unsafe()</script>\n``````\n![x](https://external.test)")
+    rendered = writer.parts[0]
+    assert rendered.startswith("```````text\n")
+    assert rendered.rstrip().endswith("```````")

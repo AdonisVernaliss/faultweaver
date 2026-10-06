@@ -344,9 +344,43 @@ def test_faultweaver_workflow_against_demo(tmp_path: Path) -> None:
                 },
             )
             assert retest.status_code == 201
+            report = client.post(
+                f"{prefix}/reports",
+                json={
+                    "title": "Northstar Billing synthetic assessment",
+                    "executive_summary": "Two manually verified authorization issues remain open.",
+                    "methodology": "Bounded baseline and explicit synthetic identity comparison.",
+                    "limitations": "Read-only local fixture; no production coverage claimed.",
+                    "conclusion": "Apply ownership checks and retest both confirmed issues.",
+                },
+            )
+            assert report.status_code == 201
+            report_path = f"{prefix}/reports/{report.json()['id']}"
+            generated = client.post(report_path + "/generate", json={"version": 1})
+            assert generated.status_code == 201
+            document = client.get(report_path + "/revisions/1").json()
+            assert document["summary"]["finding_count"] == 2
+            assert document["attack_chains"][0]["status"] == "Validated"
+            assert document["retests"][0]["status"] == "Still Vulnerable"
+            exports = {}
+            for format_name in ("html", "md", "json"):
+                exported = client.get(
+                    report_path + "/revisions/1/export/" + format_name
+                )
+                assert exported.status_code == 200
+                assert "demo-alice-token" not in exported.text
+                assert "FW-001" in exported.text and "AC-001" in exported.text
+                exports[format_name] = exported.content
         with TestClient(
             create_app(app.state.settings, key_provider=provider)
         ) as restarted:
+            for format_name, content in exports.items():
+                assert (
+                    restarted.get(
+                        report_path + "/revisions/1/export/" + format_name
+                    ).content
+                    == content
+                )
             persisted = restarted.get(f"{prefix}/attack-chains/{chain['id']}").json()
             assert persisted["status"] == "Validated" and len(persisted["steps"]) == 2
             assert (
