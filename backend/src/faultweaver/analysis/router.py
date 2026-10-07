@@ -35,7 +35,7 @@ from faultweaver.http_traffic.router import _scope_values
 from faultweaver.http_traffic.schemas import ReplayCreate, public_exchange
 from faultweaver.http_traffic.service import build_replay_exchange
 from faultweaver.identities.models import Identity
-from faultweaver.redaction import redact_body
+from faultweaver.redaction import redact_body, redact_comparison_values
 
 router = APIRouter(tags=["analysis"])
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -111,6 +111,8 @@ def public_candidate(
             )
         )
     )
+    if include_payload:
+        comparison_result = redact_comparison_values(comparison_result, replays)
     operator_notes = session.scalars(
         select(OperatorNote)
         .where(OperatorNote.candidate_id == candidate.id)
@@ -182,7 +184,7 @@ def public_comparison(session: Session, comparison: ResponseComparison) -> Compa
         replay_b=public_exchange(replay_b),
         identity_a_id=comparison.identity_a_id,
         identity_b_id=comparison.identity_b_id,
-        result=comparison.result,
+        result=redact_comparison_values(comparison.result, [replay_a, replay_b]),
         candidate=public_candidate(session, candidate) if candidate is not None else None,
         created_at=comparison.created_at,
     )

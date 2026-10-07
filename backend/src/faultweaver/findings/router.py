@@ -35,7 +35,7 @@ from faultweaver.findings.service import add_history, allocate_display_id
 from faultweaver.http_traffic.models import HttpExchange
 from faultweaver.http_traffic.schemas import public_exchange
 from faultweaver.identities.models import Identity
-from faultweaver.redaction import redact_body, redact_mapping
+from faultweaver.redaction import redact_body, redact_comparison_values, redact_mapping
 
 router = APIRouter(tags=["findings"])
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -525,7 +525,7 @@ def _evidence_snapshot(
                 "original_exchange_id": comparison.original_exchange_id,
                 "identity_a": identity_names.get(comparison.identity_a_id),
                 "identity_b": identity_names.get(comparison.identity_b_id),
-                "result": comparison.result,
+                "result": redact_comparison_values(comparison.result, [replay_a, replay_b]),
                 "replay_a": public_exchange(replay_a).model_dump(mode="json") if replay_a else None,
                 "replay_b": public_exchange(replay_b).model_dump(mode="json") if replay_b else None,
             }

@@ -51,7 +51,12 @@ def normalize_response(
     secret_values: set[str] | None = None,
 ) -> NormalizedResponse:
     protected = redact_exchange_values(
-        {"response_headers": headers, "response_body": body}, secret_values or set()
+        {
+            "response_headers": headers,
+            "response_body": body,
+            "redirect_chain": redirect_chain or [],
+        },
+        secret_values or set(),
     )
     safe_headers = redact_headers(protected["response_headers"])
     header_map = _header_map(safe_headers)
@@ -86,7 +91,7 @@ def normalize_response(
         json_structure=json_structure,
         json_fields=json_fields,
         selected_headers={key: header_map[key] for key in SELECTED_HEADERS if key in header_map},
-        redirect_chain=[redact_url(url) for url in redirect_chain or []],
+        redirect_chain=[redact_url(url) for url in protected["redirect_chain"]],
     )
 
 

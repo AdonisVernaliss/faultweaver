@@ -109,6 +109,81 @@ def test_comparison_redacts_location_and_redirect_urls():
     assert "synthetic-redirect-secret" not in encoded
 
 
+def test_comparison_redacts_known_credential_in_redirect_path():
+    result = normalize_response(
+        status=200,
+        headers=[],
+        body="ok",
+        redirect_chain=["http://app.test/synthetic-path-secret"],
+        secret_values={"synthetic-path-secret"},
+    )
+    assert "synthetic-path-secret" not in json.dumps(result.to_dict())
+
+
+def test_legacy_comparison_payload_and_evidence_are_redacted_on_read(make_client):
+    from faultweaver.analysis.models import ResponseComparison
+    from faultweaver.http_traffic.models import HttpExchange
+    from tests.test_differential_analysis import create_identity
+
+    secret = "synthetic-legacy-comparison-secret"
+    with make_client(
+        httpx.MockTransport(lambda request: httpx.Response(200, json={"id": 17}))
+    ) as client:
+        engagement = create_engagement(client)
+        authorize(client, engagement)
+        request_id = import_request(client, engagement, "/api/orders/17")
+        identities = [
+            create_identity(client, engagement, name, name + "-token")
+            for name in ("first", "second")
+        ]
+        comparison = client.post(
+            f"/api/requests/{request_id}/compare",
+            json={"identity_a_id": identities[0], "identity_b_id": identities[1]},
+        ).json()
+        with client.app.state.session_factory() as session:
+            replay = session.get(HttpExchange, comparison["replay_a"]["id"])
+            replay.request_headers = [{"name": "X-Legacy", "value": secret}]
+            stored = session.get(ResponseComparison, comparison["id"])
+            stored.result = {**stored.result, "legacy_reflection": secret}
+            session.commit()
+        for response in (
+            client.get(f"/api/comparisons/{comparison['id']}"),
+            client.get(f"/api/engagements/{engagement}/candidates/{comparison['candidate']['id']}"),
+            client.post(
+                f"/api/engagements/{engagement}/evidence",
+                json={
+                    "evidence_type": "Response Comparison",
+                    "title": "Legacy capture",
+                    "source_comparison_id": comparison["id"],
+                },
+            ),
+        ):
+            response.raise_for_status()
+            assert secret not in response.text
+        with client.app.state.session_factory() as session:
+            assert (
+                session.get(ResponseComparison, comparison["id"]).result["legacy_reflection"]
+                == secret
+            )
+
+
+def test_legacy_comparison_snapshot_is_safe_without_reading_live_sources():
+    from faultweaver.redaction import redact_mapping
+    from faultweaver.reports.builder import safe_data
+
+    secret = "synthetic-legacy-snapshot-secret"
+    snapshot = {
+        "result": {"normalized_a": {"normalized_text": secret}},
+        "replay_a": {
+            "auth_source": "identity",
+            "request_headers": [{"name": "X-Legacy", "value": secret}],
+        },
+    }
+    for public in (redact_mapping(snapshot), safe_data(snapshot)):
+        assert secret not in json.dumps(public)
+    assert snapshot["result"]["normalized_a"]["normalized_text"] == secret
+
+
 def test_legacy_identity_exchange_is_fail_closed_without_source_mutation(app_client):
     from faultweaver.http_traffic.models import HttpExchange
 

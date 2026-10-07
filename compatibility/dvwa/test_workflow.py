@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 from faultweaver.app import create_app
 from faultweaver.config import Settings
+from faultweaver.http_traffic.models import HttpExchange
 
 TERMINAL_STATES = {"Completed", "Failed", "Stopped"}
 
@@ -381,7 +382,11 @@ def test_real_dvwa_workflow(tmp_path: Path) -> None:
         assert "user_token=[REDACTED]" in imported_login["request_body"]
         post_detail = client.get(f"/api/requests/{post_request_id}").json()
         assert post_detail["method"] == "POST"
-        assert post_detail["request_body"].startswith("security=impossible&")
+        # The setting also appears in a Cookie. Known credential reflections are
+        # redacted conservatively, without changing the encrypted replay source.
+        assert post_detail["request_body"].startswith("security=[REDACTED]&")
+        with client.app.state.session_factory() as session:
+            assert session.get(HttpExchange, post_request_id).request_body == post_body
         assert "user_token=[REDACTED]" in post_detail["request_body"]
         assert any(
             item["name"].lower() == "content-type"
@@ -441,7 +446,12 @@ def test_real_dvwa_workflow(tmp_path: Path) -> None:
         assert post_replay.json()["request_body"] is None
         assert post_replay.json()["redirect_chain"]
         assert post_replay.json()["url"].endswith("security.php")
-        assert "impossible" in post_replay.json()["response_body"]
+        assert "impossible" not in post_replay.json()["response_body"]
+        with client.app.state.session_factory() as session:
+            assert (
+                "impossible"
+                in session.get(HttpExchange, post_replay.json()["id"]).response_body
+            )
 
         comparison = client.post(
             f"/api/requests/{get_request_id}/compare",

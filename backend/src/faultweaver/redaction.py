@@ -172,10 +172,36 @@ def redact_exchange_values(value: dict, secrets: set[str]) -> dict:
     return result
 
 
+def redact_comparison_values(value: Any, exchanges: list[Any]) -> Any:
+    """Protect legacy comparison payloads using their immutable replay headers."""
+    secrets: set[str] = set()
+    for exchange in exchanges:
+        if exchange is None:
+            continue
+        if isinstance(exchange, Mapping):
+            headers, auth_source = (
+                exchange.get("request_headers") or [],
+                exchange.get("auth_source"),
+            )
+        else:
+            headers, auth_source = exchange.request_headers, exchange.auth_source
+        legacy = auth_source == "identity" and not all("sensitive" in header for header in headers)
+        secrets.update(exchange_secret_values(headers, legacy_identity=legacy))
+    return redact_known_values(value, secrets)
+
+
 def _redact_value(value: Any, key: str | None = None) -> Any:
     if key is not None and is_sensitive_key(key):
         return REDACTED
     if isinstance(value, dict):
+        if isinstance(value.get("result"), dict):
+            replays = [
+                value[name]
+                for name in ("replay_a", "replay_b")
+                if isinstance(value.get(name), dict)
+            ]
+            if replays:
+                value = {**value, "result": redact_comparison_values(value["result"], replays)}
         if isinstance(value.get("request_headers"), list) and "auth_source" in value:
             headers = value["request_headers"]
             legacy = value["auth_source"] == "identity" and not all(
