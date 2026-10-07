@@ -31,7 +31,7 @@
   let selected = $derived(candidates.find((item) => item.id === selectedId) ?? candidates[0]);
 
   $effect(() => {
-    if (focusId && focusId !== selectedId) selectedId = focusId;
+    if (focusId) selectedId = focusId;
   });
 
   async function review(decision: 'False Positive' | 'Informational' | 'Accepted') {
