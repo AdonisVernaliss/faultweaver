@@ -1,6 +1,7 @@
 import json
 
 import httpx
+import pytest
 
 from faultweaver.analysis.normalization import normalize_response
 from faultweaver.redaction import REDACTED
@@ -66,6 +67,34 @@ def test_validation_error_never_returns_submitted_secret(app_client):
     assert response.status_code == 422
     assert "synthetic-invalid-secret" not in response.text
     assert "input" not in response.json()["detail"][0]
+
+
+@pytest.mark.parametrize("action", ["replay", "compare"])
+def test_unencodable_replay_header_is_a_safe_error(make_client, action):
+    with make_client(httpx.MockTransport(lambda request: httpx.Response(200))) as client:
+        engagement = create_engagement(client)
+        authorize(client, engagement)
+        request_id = import_request(client, engagement)
+        identity = client.post(
+            f"/api/engagements/{engagement}/identities",
+            json={
+                "name": "Unencodable",
+                "custom_headers": [{"name": "X-Principal", "value": "synthetic-secret-Ж"}],
+            },
+        ).json()
+        anonymous = next(
+            item
+            for item in client.get(f"/api/engagements/{engagement}/identities").json()
+            if item["is_anonymous"]
+        )
+        payload = (
+            {"identity_id": identity["id"]}
+            if action == "replay"
+            else {"identity_a_id": identity["id"], "identity_b_id": anonymous["id"]}
+        )
+        response = client.post(f"/api/requests/{request_id}/{action}", json=payload)
+        assert response.status_code == 502
+        assert "synthetic-secret" not in response.text
 
 
 def test_comparison_redacts_location_and_redirect_urls():

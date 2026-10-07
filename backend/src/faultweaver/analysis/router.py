@@ -220,7 +220,7 @@ def compare_identities(
         replay_b = _replay_for_identity(session, original, payload.identity_b_id, request)
     except ScopeViolationError as error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
-    except (httpx.HTTPError, RedirectLimitError, ValidationError) as error:
+    except (httpx.HTTPError, RedirectLimitError, ValidationError, UnicodeError) as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Comparison replay failed; check the request and target",

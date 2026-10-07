@@ -190,7 +190,7 @@ def replay_request(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     except ScopeViolationError as error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
-    except (httpx.HTTPError, RedirectLimitError, ValidationError) as error:
+    except (httpx.HTTPError, RedirectLimitError, ValidationError, UnicodeError) as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Replay failed; check the request and target",
