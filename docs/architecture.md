@@ -86,11 +86,21 @@ Evidence stores a redacted point-in-time JSON snapshot rather than a live render
 
 Replay credentials and imported request material remain in the local database. Public API serializers and the UI redact authorization, cookie, API-key, URL userinfo, sensitive query/fragment values, and common structured body secret fields by default. Normalized and comparison records are derived from redacted response material.
 
+Every Identity custom-header value is sensitive. Replay headers carry immutable
+sensitivity in existing encrypted JSON, so later Identity edits cannot expose
+older credentials. Actual final-hop transport headers, including redirect cookies,
+are retained. Legacy Identity replays fail closed; comparison and Evidence reads
+apply defense-in-depth redaction without changing stored sources. Known-value
+matching can also hide non-secret text equal to a credential.
+
 ## Safety defaults
 
 - No outbound request is allowed without an active matching scope rule.
 - Only HTTP and HTTPS targets are accepted.
 - Redirects are not followed implicitly.
+- Replay credentials and cookie-jar state are removed on origin changes; HTTP
+  clients do not inherit ambient proxy or netrc configuration. Scope is a URL
+  allowlist, not resolved-address pinning or a network firewall.
 - Assessment redirects are represented as discoveries and scope-checked before
   they enter the request frontier; external destinations are never requested.
 - The crawler uses only anonymous GET, never submits forms, never executes
@@ -102,7 +112,8 @@ Replay credentials and imported request material remain in the local database. P
 - HAR, cURL, and OpenAPI inputs are bounded and handled as untrusted data; no
   command execution or external reference fetch is part of import.
 - Automated confirmation of vulnerabilities is outside this slice and will remain an explicit operator decision.
-- Evidence snapshots and lifecycle history never store replay-capable secret values.
+- Evidence snapshots and lifecycle history redact recognized replay credentials;
+  arbitrary operator prose and target data can remain confidential.
 - The demo target is disabled by default, published only on host loopback, and
   isolated from production persistence. Its non-loopback container bind requires
   an explicit environment override supplied only by the loopback-published

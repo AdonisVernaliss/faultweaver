@@ -52,5 +52,6 @@ or exploit automation is required for compatibility validation.
 No public release or private disclosure endpoint is established yet. Do not
 publish sensitive reports, credentials or target data in public issues. Retain a
 minimal sanitized reproduction locally until the maintainer provides a verified
-private contact route. This document does not imply a security audit, SLA,
-supported-version policy or vulnerability-free release.
+private contact route. The [local release audit](docs/full-release-audit.md)
+records development verification, not independent third-party assurance, an SLA,
+a supported-version policy or a vulnerability-free release.

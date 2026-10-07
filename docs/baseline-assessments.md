@@ -29,6 +29,10 @@ query-variation caps, and cannot recurse outside the scheduler. The centralized
 rate limiter controls request starts and the bounded worker pool enforces the
 configured concurrency.
 
+Stored discovery metadata is additionally capped at `min(10000, max_requests * 20)`
+unique URLs per run, including skipped links. Further links are omitted with a
+warning; the network request limit alone is not a metadata-size limit.
+
 Default limits are 50 HTML pages, depth 3, 75 total requests, 1 request/second,
 concurrency 2, a 10 second request timeout, 1 MB response capture, and 3 query
 variants per path. The operator can adjust them within fixed API bounds. A run
@@ -37,6 +41,8 @@ forms, but automatically requests only navigational pages, frames, redirects,
 and bounded site metadata. Form action, method, encoding, and input name/type/
 hidden/value-presence metadata is stored; no form is submitted. Binary responses
 retain status, headers, timing, and truncation metadata without a body copy.
+Response cookies are never attached to subsequent baseline requests. Ambient
+proxy and netrc settings do not supply hidden authentication or routes.
 
 `robots.txt`, sitemap locations, and disallowed paths are discovery metadata,
 not authorization. JavaScript is not executed and no browser crawler, shell,
@@ -81,5 +87,8 @@ existing Candidate workflow and link the originating run, stable check ID,
 endpoint, affected exchanges, reasoning, confidence, and suggested severity.
 
 Response bodies and credential-bearing headers are sensitive local assessment
-data. Public API serializers and the UI apply the existing redaction layer, but
-the SQLite database itself is not encrypted and requires filesystem protection.
+data. Public API serializers and the UI redact recognized credentials and known
+credential reflections. The database and indexes use independently keyed
+SQLCipher storage; filesystem protection and separate key custody are still
+required. See [storage and recovery](secret-storage.md). Redaction does not make
+arbitrary response data or exported reports public.

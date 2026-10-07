@@ -1,5 +1,9 @@
 # Professional Reporting + Release Polish validation
 
+Historical milestone record. The subsequent
+[full product/security release audit](full-release-audit.md) records the current
+release gate, additional corrections and clean-room results.
+
 Local validation on 2026-10-06. This is a development milestone, **not a public
 release, penetration-test certification or the subsequent full product/security
 audit**. No push, tag, public repository, deployment or publication was performed.

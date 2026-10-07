@@ -25,7 +25,7 @@ authentication and must not be exposed to a shared network or the public interne
 
 [Quick Start](#quick-start) · [Reporting guide](docs/reporting.md) ·
 [Storage and recovery](docs/secret-storage.md) · [Security](SECURITY.md) ·
-[Release validation](docs/release-validation.md)
+[Full release audit](docs/full-release-audit.md)
 
 ## Quick Start
 
@@ -105,7 +105,10 @@ Faultweaver is pre-release software. The current vertical slice includes:
 The four-lab compatibility milestone covers Juice Shop, DVWA, WebGoat, and
 Mutillidae II within their documented limits. Local storage now requires an
 independently supplied encryption key. Professional reporting is implemented;
-an independent full product/security audit and publication remain later gates.
+the local full product/security release audit is complete with documented
+limitations. Publication remains a separate, explicitly authorized gate; this is
+not independent third-party security certification. See the
+[audit matrix and release limits](docs/full-release-audit.md).
 See [Secret storage](docs/secret-storage.md) before
 creating or upgrading a database.
 
