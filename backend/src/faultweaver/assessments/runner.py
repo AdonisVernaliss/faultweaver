@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import closing
 from dataclasses import dataclass
 from threading import Event, Lock, Thread
 from time import monotonic
@@ -206,7 +207,7 @@ class AssessmentManager:
             Exception
         ) as error:  # Fundamental runner failure; request failures are handled below.
             run.status = "Failed"
-            run.stop_reason = redact_body(str(error)) or type(error).__name__
+            run.stop_reason = f"Assessment failed: {type(error).__name__}"
             self._warn(run, f"Assessment failed: {type(error).__name__}")
         finally:
             self._finalize(session, run, frontier)
@@ -222,11 +223,15 @@ class AssessmentManager:
             return FetchResult(item, None, [], None, "", None, False, "outside authorized scope")
         started = monotonic()
         try:
-            with client.stream(
+            request = client.build_request(
                 "GET",
                 item.canonical_url,
                 headers={entry["name"]: entry["value"] for entry in _REQUEST_HEADERS},
-            ) as response:
+            )
+            # The shared client's cookie jar must not turn an anonymous baseline
+            # into an authenticated crawl. Strip on this request, not shared state.
+            request.headers.pop("cookie", None)
+            with closing(client.send(request, stream=True, follow_redirects=False)) as response:
                 content, truncated = _read_limited(response, max_response_bytes)
                 content_type = response.headers.get("content-type", "").split(";", 1)[0].lower()
                 textual = any(token in content_type for token in _TEXT_TYPES)
@@ -256,7 +261,7 @@ class AssessmentManager:
                 "",
                 round((monotonic() - started) * 1_000, 3),
                 False,
-                redact_body(str(error)) or type(error).__name__,
+                f"Request failed: {type(error).__name__}",
             )
 
     def _persist_result(
@@ -468,6 +473,9 @@ class AssessmentManager:
             self._warn(run, f"Skipped unsupported discovered URL from {kind}")
             return
         if canonical in discovery_rows:
+            return
+        if len(discovery_rows) >= min(10_000, run.max_requests * 20):
+            self._warn(run, "Reached discovery metadata limit; additional links were omitted")
             return
         in_scope = is_url_in_scope(canonical, scopes)
         enqueue = in_scope and kind in _FETCHABLE_KINDS

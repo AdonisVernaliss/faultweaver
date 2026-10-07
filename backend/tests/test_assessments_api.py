@@ -156,6 +156,33 @@ def test_assessment_crawls_only_scope_and_persists_analysis(make_client) -> None
         assert any("crawler" in item["sources"] for item in surface)
 
 
+def test_discovery_metadata_is_bounded_even_when_links_are_not_fetched(make_client) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html"},
+            text="".join(f'<a href="/link/{number}">Link</a>' for number in range(100)),
+        )
+
+    with make_client(httpx.MockTransport(handler)) as client:
+        engagement_id = _engagement(client)
+        run = client.post(
+            f"/api/engagements/{engagement_id}/assessments",
+            json={
+                "target_url": "https://example.test/",
+                "max_requests": 2,
+                "max_pages": 2,
+                "inspect_site_metadata": False,
+            },
+        ).json()
+        detail = _wait_for(
+            client, engagement_id, run["id"], lambda item: item["status"] == "Completed"
+        )
+        assert len(detail["discoveries"]) <= 40
+        assert any("discovery metadata limit" in warning for warning in detail["warnings"])
+        assert detail["request_count"] <= 2
+
+
 def test_assessment_stop_is_graceful_and_preserves_partial_data(make_client) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         time.sleep(0.08)

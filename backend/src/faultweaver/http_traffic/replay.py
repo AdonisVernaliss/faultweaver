@@ -113,7 +113,8 @@ def execute_replay(
                     method=current_method,
                     url=current_url,
                     request_headers=[
-                        {"name": key, "value": value} for key, value in current_headers
+                        {"name": key, "value": value}
+                        for key, value in response.request.headers.multi_items()
                     ],
                     request_body=current_body,
                     status=response.status_code,

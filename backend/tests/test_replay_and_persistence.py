@@ -153,7 +153,9 @@ def test_identity_replay_replaces_auth_and_preserves_the_original(
         assert replay["identity_id"] == identity["id"]
         assert replay["auth_source"] == "identity"
         assert replay["operator_modified"] is True
-        assert {item["name"].lower(): item["value"] for item in replay["request_headers"]} == {
+        public_headers = {item["name"].lower(): item["value"] for item in replay["request_headers"]}
+        assert public_headers == {
+            **dict(captured[0].headers),
             "accept": "application/json",
             "authorization": REDACTED,
             "x-api-key": REDACTED,

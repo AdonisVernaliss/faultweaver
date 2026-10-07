@@ -104,3 +104,78 @@ def test_scope_error_does_not_echo_redirect_secret(make_client):
 )
 def test_ambiguous_or_outside_urls_are_not_authorized(url):
     assert not is_url_in_scope(url, [ScopeRuleValue("http", "app.test", 80, "/api")])
+
+
+def test_replay_captures_same_origin_redirect_cookie_in_provenance():
+    count = 0
+
+    def handler(request):
+        nonlocal count
+        count += 1
+        if count == 1:
+            return httpx.Response(
+                302, headers={"location": "/end", "set-cookie": "sid=synthetic-hop; Path=/"}
+            )
+        assert request.headers["cookie"] == "sid=synthetic-hop"
+        return httpx.Response(200, text="ok")
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = execute_replay(
+            client,
+            method="GET",
+            url="http://app.test/start",
+            headers=[],
+            body=None,
+            scopes=[ScopeRuleValue("http", "app.test", 80)],
+            max_redirects=2,
+            max_response_bytes=1000,
+        )
+    assert {h["name"].lower(): h["value"] for h in result.request_headers}[
+        "cookie"
+    ] == "sid=synthetic-hop"
+
+
+def test_baseline_does_not_silently_acquire_authentication_cookies(app_client):
+    from faultweaver.assessments.frontier import FrontierItem
+
+    captured = []
+
+    def handler(request):
+        captured.append(request)
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "text/html",
+                "set-cookie": "sid=synthetic-auto-session; Path=/",
+            },
+            text="ok",
+        )
+
+    manager = app_client.app.state.assessment_manager
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        for path in ("/first", "/second"):
+            url = "http://app.test" + path
+            result = manager._fetch(
+                client,
+                FrontierItem(url, url, 0, "seed"),
+                1000,
+                [ScopeRuleValue("http", "app.test", 80)],
+            )
+            assert result.status == 200
+    assert all("cookie" not in request.headers for request in captured)
+
+
+def test_crawler_transport_error_does_not_echo_raw_url(app_client):
+    from faultweaver.assessments.frontier import FrontierItem
+
+    def handler(request):
+        raise httpx.ConnectError("Failed https://app.test/?token=synthetic-error-secret")
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = app_client.app.state.assessment_manager._fetch(
+            client,
+            FrontierItem("http://app.test/", "http://app.test/", 0, "seed"),
+            1000,
+            [ScopeRuleValue("http", "app.test", 80)],
+        )
+    assert result.error == "Request failed: ConnectError"
