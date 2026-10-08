@@ -3,6 +3,8 @@
 A local-first Web & API penetration-testing workspace for tracing authorized
 traffic through manual verification, evidence, retesting, and reporting.
 
+[![CI](https://github.com/AdonisVernaliss/faultweaver/actions/workflows/ci.yml/badge.svg)](https://github.com/AdonisVernaliss/faultweaver/actions/workflows/ci.yml)
+
 [Quick Start](#quick-start) · [Workflow](#core-workflow) ·
 [Documentation](#documentation) · [Security](SECURITY.md)
 
@@ -88,11 +90,15 @@ infer chains or execute their steps.
 
 ## Quick Start
 
+This is the first release candidate, **v1.0.0-rc.1**, not a stable release.
+
 For a fresh local installation on macOS or Linux, install Docker with Compose,
-Python 3.13, `uv`, and `make`. Run these commands from the repository root. Node.js is
+Python 3.13, `uv`, Git, and `make`. Node.js is
 not required on the host for Docker startup.
 
 ```bash
+git clone https://github.com/AdonisVernaliss/faultweaver.git
+cd faultweaver
 uv sync --locked --project backend --all-groups
 export FAULTWEAVER_KEY_PROVIDER=file
 export FAULTWEAVER_MASTER_KEY_FILE="${FAULTWEAVER_MASTER_KEY_FILE:-$HOME/.local/share/faultweaver-keys/master.json}"
@@ -190,7 +196,7 @@ See the [reporting guide](docs/reporting.md) for draft, revision, and export beh
 
 FastAPI, SQLAlchemy, and SQLCipher form the backend; SvelteKit and TypeScript
 form the frontend. Tested runtimes: Python 3.13 (3.13.5 locally, 3.13.11 in
-Docker), Node.js 22.23.3, and `uv` 0.11.8. Use Node 22.x, at least 22.17;
+Docker, 3.13.16 in GitHub CI), Node.js 22.23.3, and `uv` 0.11.8. Use Node 22.x, at least 22.17;
 newer major versions are outside the validated baseline.
 
 ```bash

@@ -49,9 +49,12 @@ or exploit automation is required for compatibility validation.
 
 ## Reporting a Faultweaver vulnerability
 
-No public release or private disclosure endpoint is established yet. Do not
-publish sensitive reports, credentials or target data in public issues. Retain a
-minimal sanitized reproduction locally until the maintainer provides a verified
-private contact route. The [local release audit](docs/full-release-audit.md)
-records development verification, not independent third-party assurance, an SLA,
-a supported-version policy or a vulnerability-free release.
+Use GitHub's [private vulnerability reporting](https://github.com/AdonisVernaliss/faultweaver/security/advisories/new)
+for vulnerabilities in Faultweaver itself. Include the affected version, impact,
+and a minimal sanitized reproduction. Do not send real target credentials, keys,
+databases, or assessment evidence. Do not disclose sensitive reports in public issues.
+
+The current version is a release candidate, not a stable release. The
+[local release audit](docs/full-release-audit.md) records development verification,
+not independent third-party assurance, an SLA, a supported-version policy, or a
+vulnerability-free release.

@@ -16,4 +16,4 @@ def test_health_endpoint(tmp_path: Path) -> None:
         response = client.get("/api/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": "0.1.0"}
+    assert response.json() == {"status": "ok", "version": "1.0.0rc1"}
